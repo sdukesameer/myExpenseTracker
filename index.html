@@ -971,7 +971,7 @@
         const supabaseUrl = '%VITE_SUPABASE_URL%';
         const supabaseKey = '%VITE_SUPABASE_ANON_KEY%';
 
-        if (!supabaseUrl || !supabaseKey || supabaseUrl === '%VITE_SUPABASE_URL%' || supabaseKey === '%VITE_SUPABASE_ANON_KEY%') {
+        if (!supabaseUrl || !supabaseKey) {
             console.error('Supabase credentials not found. Please check environment variables.');
         }
 
