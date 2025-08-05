@@ -641,6 +641,11 @@
 </head>
 <body>
     <div class="container">
+        <!-- Sync Status -->
+        <div id="sync-status" class="sync-status hidden">
+            🌐 Connected - Data synced across devices
+        </div>
+
         <!-- Sign In Form -->
         <div id="signin-form" class="auth-container">
             <div class="header">
@@ -1079,6 +1084,8 @@
             hideAllForms();
             document.getElementById('dashboard').style.display = 'block';
             document.getElementById('sync-status').classList.remove('hidden');
+            document.getElementById('sync-status').textContent = '🌐 Connected - Data synced across devices';
+
             // Update user info
             const userName = currentUser.user_metadata?.name || currentUser.email.split('@')[0];
             document.getElementById('user-name').textContent = `Welcome, ${userName}!`;
