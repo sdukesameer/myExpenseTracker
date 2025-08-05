@@ -599,6 +599,34 @@
             border-color: rgba(239, 68, 68, 0.2);
         }
 
+        .budget-tracker {
+            background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+            color: #2d3436;
+            padding: 1.5rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+        }
+
+        .budget-progress {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .budget-progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, #00b894, #00a085);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .budget-progress-bar.over-budget {
+            background: linear-gradient(135deg, #e17055, #d63031);
+        }
+
         /* Improved mobile responsiveness */
         @media (max-width: 768px) {
             .container {
@@ -822,6 +850,21 @@
                 </div>
             </div>
 
+            <!-- Budget Tracker -->
+            <div class="budget-tracker">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Monthly Budget</h3>
+                    <button class="btn btn-small" onclick="setBudget()">Set Budget</button>
+                </div>
+                <div class="budget-progress">
+                    <div class="budget-progress-bar" id="budget-progress-bar" style="width: 0%"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                    <span id="budget-remaining">Remaining: ₹0</span>
+                    <span id="budget-total">Budget: ₹0</span>
+                </div>
+            </div>
+
             <!-- Add Expense Form -->
             <div class="expense-form">
                 <h3 style="margin-bottom: 1.5rem; color: #374151; font-weight: 600;">Add New Expense</h3>
@@ -847,11 +890,10 @@
                             <input type="number" id="amount" step="0.01" min="0" required>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="date">Date:</label>
-                            <input type="date" id="date" required>
-                        </div>
+                    <div class="form-group">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" required onchange="updateDateDisplay()">
+                        <div id="date-display" style="font-size: 0.9rem; color: #6b7280; margin-top: 0.5rem;"></div>
                     </div>
                     <div class="checkbox-group">
                         <input type="checkbox" id="billed">
@@ -914,6 +956,22 @@
         </div>
     </div>
 
+    <!-- Budget Setting Modal -->
+    <div id="budget-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeBudgetModal()">&times;</button>
+            <h3>Set Monthly Budget</h3>
+
+            <form id="budget-form">
+                <div class="form-group">
+                    <label for="budget-amount">Monthly Budget Amount:</label>
+                    <input type="number" id="budget-amount" step="0.01" required placeholder="Enter your monthly budget">
+                </div>
+                <button type="submit" class="btn">Set Budget</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Visualization Modal -->
     <div id="visualization-modal" class="modal">
         <div class="modal-content">
@@ -966,10 +1024,11 @@
         let currentUser = null;
         let currentChart = null;
         let filteredExpenses = [];
+        let monthlyBudget = parseFloat(localStorage.getItem('monthlyBudget') || '0');
 
         // Initialize Supabase - FIXED: Remove import.meta usage
-        const supabaseUrl = '%VITE_SUPABASE_URL%';
-        const supabaseKey = '%VITE_SUPABASE_ANON_KEY%';
+        const supabaseUrl = 'https://hjjpjcqzslqikopsbxwh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqanBqY3F6c2xxaWtvcHNieHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzODk3MzcsImV4cCI6MjA2OTk2NTczN30.GPU3hJwuPkgKeGRaoF6i3oFygL4sTuQXsc5RR5otLjU';
 
         if (!supabaseUrl || !supabaseKey) {
             console.error('Supabase credentials not found. Please check environment variables.');
@@ -1038,6 +1097,9 @@
             document.getElementById('expense-form').addEventListener('submit', handleAddExpense);
             document.getElementById('add-type-form').addEventListener('submit', handleAddType);
             document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
+
+            // Call updateDateDisplay when page loads
+            updateDateDisplay();
         });
 
         // Authentication functions
@@ -1196,6 +1258,7 @@
             loadUserTypes();
             loadExpenses();
             updateStatistics();
+            updateBudgetDisplay();
         }
 
         async function loadUserTypes() {
@@ -1362,6 +1425,7 @@
                 document.getElementById('billed-expenses').textContent = `₹${billedExpenses.toFixed(2)}`;
                 document.getElementById('unbilled-expenses').textContent = `₹${unbilledExpenses.toFixed(2)}`;
                 document.getElementById('expense-count').textContent = monthlyCount;
+                updateBudgetDisplay();
             } catch (error) {
                 console.error('Failed to update statistics:', error);
             }
@@ -1412,6 +1476,76 @@
                 setTimeout(() => closeAddTypeModal(), 1500);
             } catch (error) {
                 showAlert('type-alert', error.message || 'Failed to add type.', 'error');
+            }
+        }
+
+        // Budget management
+        function setBudget() {
+            document.getElementById('budget-modal').style.display = 'block';
+            document.getElementById('budget-amount').value = monthlyBudget || '';
+        }
+
+        function closeBudgetModal() {
+            document.getElementById('budget-modal').style.display = 'none';
+        }
+
+        document.getElementById('budget-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            monthlyBudget = parseFloat(document.getElementById('budget-amount').value);
+            localStorage.setItem('monthlyBudget', monthlyBudget);
+            updateBudgetDisplay();
+            closeBudgetModal();
+            showNotification('Budget updated successfully!', 'success');
+        });
+
+        function updateBudgetDisplay() {
+            if (!currentUser) return;
+
+            let monthlySpent = 0;
+            const monthlyExpensesElement = document.getElementById('monthly-expenses');
+            if (monthlyExpensesElement) {
+                monthlySpent = parseFloat(monthlyExpensesElement.textContent.replace('₹', '')) || 0;
+            }
+
+            const remaining = monthlyBudget - monthlySpent;
+
+            document.getElementById('budget-remaining').textContent = `Remaining: ₹${remaining.toFixed(2)}`;
+            document.getElementById('budget-total').textContent = `Budget: ₹${monthlyBudget.toFixed(2)}`;
+
+            const progressBar = document.getElementById('budget-progress-bar');
+            const percentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
+
+            progressBar.style.width = `${Math.min(percentage, 100)}%`;
+            progressBar.classList.toggle('over-budget', percentage > 100);
+
+            // Show warnings
+            if (percentage > 90 && percentage <= 100) {
+                showNotification('Warning: You\'re approaching your budget limit!', 'info');
+            } else if (percentage > 100) {
+                showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
+            }
+        }
+
+        function updateDateDisplay() {
+            const dateInput = document.getElementById('date');
+            const dateDisplay = document.getElementById('date-display');
+
+            if (dateInput.value) {
+                const date = new Date(dateInput.value + 'T00:00:00');
+                const options = {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                };
+
+                const formattedDate = date.toLocaleDateString('en-GB', options);
+                const day = date.getDate();
+                const suffix = day % 10 === 1 && day !== 11 ? 'st' :
+                            day % 10 === 2 && day !== 12 ? 'nd' :
+                            day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+
+                dateDisplay.textContent = formattedDate.replace(day.toString(), `${day}${suffix}`);
             }
         }
 
@@ -1692,6 +1826,7 @@
             const addTypeModal = document.getElementById('add-type-modal');
             const visualizationModal = document.getElementById('visualization-modal');
             const changePasswordModal = document.getElementById('change-password-modal');
+            const budgetModal = document.getElementById('budget-modal');
 
             if (event.target === addTypeModal) {
                 closeAddTypeModal();
@@ -1701,6 +1836,9 @@
             }
             if (event.target === changePasswordModal) {
                 closeChangePasswordModal();
+            }
+            if (event.target === budgetModal) {
+                closeBudgetModal();
             }
         }
     </script>
