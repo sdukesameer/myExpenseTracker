@@ -1,6 +1,14 @@
 [build]
-  command = "npm run build"
-  publish = "dist"
+  publish = "."
+  command = """
+    # Create a temporary copy of index.html
+    cp index.html index_temp.html && \
+    # Replace environment variables
+    sed -i 's|%VITE_SUPABASE_URL%|'\"${VITE_SUPABASE_URL}\"'|g' index_temp.html && \
+    sed -i 's|%VITE_SUPABASE_ANON_KEY%|'\"${VITE_SUPABASE_ANON_KEY}\"'|g' index_temp.html && \
+    # Move back to index.html
+    mv index_temp.html index.html
+  """
 
 [build.environment]
   NODE_VERSION = "18"

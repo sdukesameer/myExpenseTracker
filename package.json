@@ -2,10 +2,6 @@
     "name": "expense-tracker",
     "version": "1.0.0",
     "scripts": {
-        "build": "cp index.html dist/index.html && sed -i 's/%VITE_SUPABASE_URL%/'\"$VITE_SUPABASE_URL\"'/g' dist/index.html && sed -i 's/%VITE_SUPABASE_ANON_KEY%/'\"$VITE_SUPABASE_ANON_KEY\"'/g' dist/index.html",
         "dev": "python -m http.server 8000"
-    },
-    "devDependencies": {
-        "vite": "^4.0.0"
     }
 }
