@@ -1027,8 +1027,8 @@
         let monthlyBudget = parseFloat(localStorage.getItem('monthlyBudget') || '0');
 
         // Initialize Supabase - FIXED: Remove import.meta usage
-        const supabaseUrl = 'https://hjjpjcqzslqikopsbxwh.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqanBqY3F6c2xxaWtvcHNieHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzODk3MzcsImV4cCI6MjA2OTk2NTczN30.GPU3hJwuPkgKeGRaoF6i3oFygL4sTuQXsc5RR5otLjU';
+        const supabaseUrl = '%VITE_SUPABASE_URL%';
+        const supabaseKey = '%VITE_SUPABASE_ANON_KEY%';
 
         if (!supabaseUrl || !supabaseKey) {
             console.error('Supabase credentials not found. Please check environment variables.');
