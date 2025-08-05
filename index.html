@@ -967,18 +967,51 @@
         let currentChart = null;
         let filteredExpenses = [];
 
-        // Initialize Supabase - REPLACE WITH YOUR ACTUAL VALUES
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || window.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || window.VITE_SUPABASE_ANON_KEY;
+        // Initialize Supabase - FIXED: Remove import.meta usage
+        const supabaseUrl = '%VITE_SUPABASE_URL%';
+        const supabaseKey = '%VITE_SUPABASE_ANON_KEY%';
 
-        if (!supabaseUrl || !supabaseKey) {
+        if (!supabaseUrl || !supabaseKey || supabaseUrl === '%VITE_SUPABASE_URL%' || supabaseKey === '%VITE_SUPABASE_ANON_KEY%') {
             console.error('Supabase credentials not found. Please check environment variables.');
         }
 
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
+        // FIXED: Initialize theme toggle variables at the top
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        // FIXED: Theme toggle function moved up and properly scoped
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode', isDarkMode);
+            document.getElementById('theme-icon').textContent = isDarkMode ? '☀️' : '🌙';
+            localStorage.setItem('darkMode', isDarkMode);
+        }
+
+        // FIXED: Notification system properly scoped
+        function showNotification(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+
+            container.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 100);
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => container.removeChild(notification), 300);
+            }, duration);
+        }
+
         // Initialize the app
         document.addEventListener('DOMContentLoaded', async function() {
+            // FIXED: Initialize theme on load
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('theme-icon').textContent = '☀️';
+            }
+
             // Set today's date as default
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('date').value = today;
@@ -1670,51 +1703,6 @@
                 closeChangePasswordModal();
             }
         }
-        // Enhanced Features
-        let isDarkMode = localStorage.getItem('darkMode') === 'true';
-
-        // Theme toggle
-        function toggleTheme() {
-            isDarkMode = !isDarkMode;
-            document.body.classList.toggle('dark-mode', isDarkMode);
-            document.getElementById('theme-icon').textContent = isDarkMode ? '☀️' : '🌙';
-            localStorage.setItem('darkMode', isDarkMode);
-        }
-
-        // Notification system
-        function showNotification(message, type = 'info', duration = 3000) {
-            const container = document.getElementById('notification-container');
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-
-            container.appendChild(notification);
-            setTimeout(() => notification.classList.add('show'), 100);
-
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => container.removeChild(notification), 300);
-            }, duration);
-        }
-
-        // Initialize theme on load
-        document.addEventListener('DOMContentLoaded', function () {
-            if (isDarkMode) {
-                document.body.classList.add('dark-mode');
-                document.getElementById('theme-icon').textContent = '☀️';
-            }
-        });
-
-        // Enhanced success/error handling
-        const originalHandleAddExpense = handleAddExpense;
-        handleAddExpense = async function (e) {
-            try {
-                await originalHandleAddExpense(e);
-                showNotification('Expense added successfully!', 'success');
-            } catch (error) {
-                showNotification('Failed to add expense: ' + error.message, 'error');
-            }
-        };
     </script>
 </body>
 </html>
