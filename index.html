@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Expense Tracker</title>
+    <title>💰 Expense Tracker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -900,24 +902,16 @@
     <script>
         // Global variables
         let currentUser = null;
-        let users = {};
-        let expenses = {};
-        let userTypes = {};
         let currentChart = null;
         let filteredExpenses = [];
-        let isOnline = navigator.onLine;
 
-        // Cloud storage simulation (in real app, this would be Firebase/Supabase/etc.)
-        const CLOUD_STORAGE_KEY = 'expenseTracker_cloudData';
-
-        // Initialize default types for new users
-        const defaultTypes = ['Food', 'Transportation', 'Entertainment', 'Utilities', 'Shopping', 'Healthcare', 'Education', 'Other'];
+        // Initialize Supabase - REPLACE WITH YOUR ACTUAL VALUES
+        const supabaseUrl = 'https://hjjpjcqzslqikopsbxwh.supabase.co'; // Like https://xxxxx.supabase.co
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqanBqY3F6c2xxaWtvcHNieHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzODk3MzcsImV4cCI6MjA2OTk2NTczN30.GPU3hJwuPkgKeGRaoF6i3oFygL4sTuQXsc5RR5otLjU'; // Long string starting with eyJ...
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         // Initialize the app
-        document.addEventListener('DOMContentLoaded', function() {
-            loadCloudData();
-            updateSyncStatus();
-
+        document.addEventListener('DOMContentLoaded', async function() {
             // Set today's date as default
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('date').value = today;
@@ -928,11 +922,13 @@
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             document.getElementById('start-date').value = thirtyDaysAgo.toISOString().split('T')[0];
 
-            // Check if user is already logged in
-            const savedUser = localStorage.getItem('expenseTracker_currentUser');
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
+            // Check for existing session
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                currentUser = user;
                 showDashboard();
+            } else {
+                document.getElementById('sync-status').classList.add('hidden');
             }
 
             // Form event listeners
@@ -942,92 +938,25 @@
             document.getElementById('expense-form').addEventListener('submit', handleAddExpense);
             document.getElementById('add-type-form').addEventListener('submit', handleAddType);
             document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
-
-            // Online/offline event listeners
-            window.addEventListener('online', () => {
-                isOnline = true;
-                updateSyncStatus();
-                syncToCloud();
-            });
-
-            window.addEventListener('offline', () => {
-                isOnline = false;
-                updateSyncStatus();
-            });
         });
-
-        // Cloud data management
-        function loadCloudData() {
-            try {
-                const cloudData = localStorage.getItem(CLOUD_STORAGE_KEY);
-                if (cloudData) {
-                    const parsed = JSON.parse(cloudData);
-                    users = parsed.users || {};
-                    expenses = parsed.expenses || {};
-                    userTypes = parsed.userTypes || {};
-                } else {
-                    // Migrate old localStorage data if exists
-                    users = JSON.parse(localStorage.getItem('expenseTracker_users') || '{}');
-                    expenses = JSON.parse(localStorage.getItem('expenseTracker_expenses') || '{}');
-                    userTypes = JSON.parse(localStorage.getItem('expenseTracker_types') || '{}');
-                    syncToCloud();
-                }
-            } catch (error) {
-                console.error('Error loading cloud data:', error);
-                users = {};
-                expenses = {};
-                userTypes = {};
-            }
-        }
-
-        function syncToCloud() {
-            try {
-                const cloudData = {
-                    users,
-                    expenses,
-                    userTypes,
-                    lastSync: new Date().toISOString()
-                };
-                localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(cloudData));
-
-                // Remove old localStorage keys
-                localStorage.removeItem('expenseTracker_users');
-                localStorage.removeItem('expenseTracker_expenses');
-                localStorage.removeItem('expenseTracker_types');
-
-                updateSyncStatus();
-            } catch (error) {
-                console.error('Error syncing to cloud:', error);
-            }
-        }
-
-        function updateSyncStatus() {
-            const statusEl = document.getElementById('sync-status');
-            statusEl.classList.remove('hidden');
-
-            if (isOnline) {
-                statusEl.textContent = '🌐 Connected - Data synced across devices';
-                statusEl.classList.remove('offline');
-            } else {
-                statusEl.textContent = '📱 Offline - Data saved locally';
-                statusEl.classList.add('offline');
-            }
-        }
 
         // Authentication functions
         function showSignIn() {
             hideAllForms();
             document.getElementById('signin-form').classList.remove('hidden');
+            document.getElementById('sync-status').classList.add('hidden');
         }
 
         function showSignUp() {
             hideAllForms();
             document.getElementById('signup-form').classList.remove('hidden');
+            document.getElementById('sync-status').classList.add('hidden');
         }
 
         function showForgotPassword() {
             hideAllForms();
             document.getElementById('forgot-password-form').classList.remove('hidden');
+            document.getElementById('sync-status').classList.add('hidden');
         }
 
         function hideAllForms() {
@@ -1037,22 +966,27 @@
             document.getElementById('dashboard').style.display = 'none';
         }
 
-        function handleSignIn(e) {
+        async function handleSignIn(e) {
             e.preventDefault();
             const email = document.getElementById('signin-email').value;
             const password = document.getElementById('signin-password').value;
 
-            if (users[email] && users[email].password === password) {
-                currentUser = users[email];
-                localStorage.setItem('expenseTracker_currentUser', JSON.stringify(currentUser));
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email, password
+                });
+
+                if (error) throw error;
+
+                currentUser = data.user;
                 showAlert('signin-alert', 'Sign in successful!', 'success');
                 setTimeout(() => showDashboard(), 1000);
-            } else {
-                showAlert('signin-alert', 'Invalid email or password.', 'error');
+            } catch (error) {
+                showAlert('signin-alert', error.message, 'error');
             }
         }
 
-        function handleSignUp(e) {
+        async function handleSignUp(e) {
             e.preventDefault();
             const name = document.getElementById('signup-name').value;
             const email = document.getElementById('signup-email').value;
@@ -1064,40 +998,67 @@
                 return;
             }
 
-            if (users[email]) {
-                showAlert('signup-alert', 'Email already exists.', 'error');
-                return;
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email, password,
+                    options: {
+                        data: { name },
+                        emailRedirectTo: window.location.origin
+                    }
+                });
+
+                if (error) throw error;
+
+                // Add default expense types for new user
+                if (data.user) {
+                    const defaultTypes = ['Food', 'Transportation', 'Entertainment', 'Utilities', 'Shopping', 'Healthcare', 'Education', 'Other'];
+                    for (const type of defaultTypes) {
+                        await supabase.from('expense_types').insert([{ user_id: data.user.id, name: type }]);
+                    }
+                }
+
+                showAlert('signup-alert', 'Check your email for verification link!', 'success');
+                setTimeout(() => showSignIn(), 2000);
+            } catch (error) {
+                showAlert('signup-alert', error.message, 'error');
             }
-
-            // Create new user
-            users[email] = { name, email, password };
-
-            // Initialize default types for new user
-            userTypes[email] = [...defaultTypes];
-
-            // Initialize empty expenses for new user
-            expenses[email] = [];
-
-            syncToCloud();
-
-            showAlert('signup-alert', 'Account created successfully! Please sign in.', 'success');
-            setTimeout(() => showSignIn(), 2000);
         }
 
-        function handleForgotPassword(e) {
+        async function handleForgotPassword(e) {
             e.preventDefault();
             const email = document.getElementById('forgot-email').value;
 
-            if (users[email]) {
-                // Generate a simple temporary password (in real app, this would be sent via email)
-                const tempPassword = 'temp' + Math.random().toString(36).substr(2, 6);
-                users[email].password = tempPassword;
-                syncToCloud();
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin
+                });
+                if (error) throw error;
 
-                showAlert('forgot-alert', `Your temporary password is: ${tempPassword}\nPlease sign in and change your password immediately.`, 'success');
-                setTimeout(() => showSignIn(), 5000);
-            } else {
-                showAlert('forgot-alert', 'Email not found.', 'error');
+                showAlert('forgot-alert', 'Password reset link sent to your email!', 'success');
+                setTimeout(() => showSignIn(), 2000);
+            } catch (error) {
+                showAlert('forgot-alert', error.message, 'error');
+            }
+        }
+
+        async function handleChangePassword(e) {
+            e.preventDefault();
+            const newPassword = document.getElementById('new-password').value;
+            const confirmNewPassword = document.getElementById('confirm-new-password').value;
+
+            if (newPassword !== confirmNewPassword) {
+                showAlert('change-password-alert', 'New passwords do not match.', 'error');
+                return;
+            }
+
+            try {
+                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                if (error) throw error;
+
+                showAlert('change-password-alert', 'Password changed successfully!', 'success');
+                setTimeout(() => closeChangePasswordModal(), 2000);
+            } catch (error) {
+                showAlert('change-password-alert', error.message, 'error');
             }
         }
 
@@ -1112,40 +1073,9 @@
             document.getElementById('change-password-alert').innerHTML = '';
         }
 
-        function handleChangePassword(e) {
-            e.preventDefault();
-            const currentPassword = document.getElementById('current-password').value;
-            const newPassword = document.getElementById('new-password').value;
-            const confirmNewPassword = document.getElementById('confirm-new-password').value;
-
-            if (currentUser.password !== currentPassword) {
-                showAlert('change-password-alert', 'Current password is incorrect.', 'error');
-                return;
-            }
-
-            if (newPassword !== confirmNewPassword) {
-                showAlert('change-password-alert', 'New passwords do not match.', 'error');
-                return;
-            }
-
-            if (newPassword.length < 6) {
-                showAlert('change-password-alert', 'New password must be at least 6 characters long.', 'error');
-                return;
-            }
-
-            // Update password
-            users[currentUser.email].password = newPassword;
-            currentUser.password = newPassword;
-            localStorage.setItem('expenseTracker_currentUser', JSON.stringify(currentUser));
-            syncToCloud();
-
-            showAlert('change-password-alert', 'Password changed successfully!', 'success');
-            setTimeout(() => closeChangePasswordModal(), 2000);
-        }
-
-        function logout() {
+        async function logout() {
+            await supabase.auth.signOut();
             currentUser = null;
-            localStorage.removeItem('expenseTracker_currentUser');
             showSignIn();
         }
 
@@ -1153,11 +1083,14 @@
         function showDashboard() {
             hideAllForms();
             document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('sync-status').classList.remove('hidden');
+            document.getElementById('sync-status').textContent = '🌐 Connected - Data synced across devices';
 
             // Update user info
-            document.getElementById('user-name').textContent = `Welcome, ${currentUser.name}!`;
+            const userName = currentUser.user_metadata?.name || currentUser.email.split('@')[0];
+            document.getElementById('user-name').textContent = `Welcome, ${userName}!`;
             document.getElementById('user-email').textContent = currentUser.email;
-            document.getElementById('user-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
+            document.getElementById('user-avatar').textContent = userName.charAt(0).toUpperCase();
 
             // Load user types and expenses
             loadUserTypes();
@@ -1165,122 +1098,152 @@
             updateStatistics();
         }
 
-        function loadUserTypes() {
-            const userTypesList = userTypes[currentUser.email] || [...defaultTypes];
-            const typeSelect = document.getElementById('type');
+        async function loadUserTypes() {
+            try {
+                const { data, error } = await supabase
+                    .from('expense_types')
+                    .select('name')
+                    .order('name');
 
-            // Clear existing options except the first one
-            typeSelect.innerHTML = '<option value="">Select Type</option>';
+                if (error) throw error;
 
-            userTypesList.forEach(type => {
-                const option = document.createElement('option');
-                option.value = type;
-                option.textContent = type;
-                typeSelect.appendChild(option);
-            });
+                const typeSelect = document.getElementById('type');
+                typeSelect.innerHTML = '<option value="">Select Type</option>';
+
+                data.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.name;
+                    option.textContent = type.name;
+                    typeSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load types:', error);
+            }
         }
 
-        function handleAddExpense(e) {
+        async function handleAddExpense(e) {
             e.preventDefault();
 
-            const amount = parseFloat(document.getElementById('amount').value);
-            const date = document.getElementById('date').value;
-            const type = document.getElementById('type').value;
-            const note = document.getElementById('note').value;
-            const billed = document.getElementById('billed').checked;
-
             const expense = {
-                id: Date.now(),
-                amount,
-                date,
-                type,
-                note,
-                billed,
-                timestamp: new Date().toISOString()
+                user_id: currentUser.id,
+                amount: parseFloat(document.getElementById('amount').value),
+                date: document.getElementById('date').value,
+                type: document.getElementById('type').value,
+                note: document.getElementById('note').value,
+                billed: document.getElementById('billed').checked
             };
 
-            // Add to user's expenses
-            if (!expenses[currentUser.email]) {
-                expenses[currentUser.email] = [];
-            }
-            expenses[currentUser.email].unshift(expense);
-            syncToCloud();
+            try {
+                const { error } = await supabase
+                    .from('expenses')
+                    .insert([expense]);
 
-            // Reset form
-            document.getElementById('expense-form').reset();
-            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+                if (error) throw error;
 
-            // Refresh display
-            loadExpenses();
-            updateStatistics();
-        }
-
-        function loadExpenses() {
-            const userExpenses = expenses[currentUser.email] || [];
-            const container = document.getElementById('expenses-container');
-
-            if (userExpenses.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 3rem;">No expenses added yet. Add your first expense above!</p>';
-                return;
-            }
-
-            container.innerHTML = userExpenses.map(expense => `
-                <div class="expense-item">
-                    <div class="expense-details">
-                        <div class="expense-amount">₹${expense.amount.toFixed(2)}</div>
-                        <div class="expense-note">${expense.note || 'No description'}</div>
-                        <div class="expense-meta">
-                            <span class="expense-type">${expense.type}</span>
-                            ${expense.billed ? '<span class="billed-badge">BILLED</span>' : ''}
-                            <span>${formatDate(expense.date)}</span>
-                        </div>
-                    </div>
-                    <button class="delete-btn" onclick="deleteExpense(${expense.id})" title="Delete expense">×</button>
-                </div>
-            `).join('');
-        }
-
-        function deleteExpense(id) {
-            if (confirm('Are you sure you want to delete this expense?')) {
-                expenses[currentUser.email] = expenses[currentUser.email].filter(expense => expense.id !== id);
-                syncToCloud();
+                document.getElementById('expense-form').reset();
+                document.getElementById('date').value = new Date().toISOString().split('T')[0];
                 loadExpenses();
                 updateStatistics();
+            } catch (error) {
+                alert('Failed to add expense: ' + error.message);
             }
         }
 
-        function updateStatistics() {
-            const userExpenses = expenses[currentUser.email] || [];
-            const now = new Date();
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
+        async function loadExpenses() {
+            try {
+                const { data, error } = await supabase
+                    .from('expenses')
+                    .select('*')
+                    .order('date', { ascending: false })
+                    .limit(50); // Limit for performance
 
-            const totalExpenses = userExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-            const monthlyExpenses = userExpenses
-                .filter(expense => {
+                if (error) throw error;
+
+                const container = document.getElementById('expenses-container');
+
+                if (data.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 3rem;">No expenses added yet. Add your first expense above!</p>';
+                    return;
+                }
+
+                container.innerHTML = data.map(expense => `
+                    <div class="expense-item">
+                        <div class="expense-details">
+                            <div class="expense-amount">₹${expense.amount.toFixed(2)}</div>
+                            <div class="expense-note">${expense.note || 'No description'}</div>
+                            <div class="expense-meta">
+                                <span class="expense-type">${expense.type}</span>
+                                ${expense.billed ? '<span class="billed-badge">BILLED</span>' : ''}
+                                <span>${formatDate(expense.date)}</span>
+                            </div>
+                        </div>
+                        <button class="delete-btn" onclick="deleteExpense(${expense.id})" title="Delete expense">×</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load expenses:', error);
+            }
+        }
+
+        async function deleteExpense(id) {
+            if (confirm('Are you sure you want to delete this expense?')) {
+                try {
+                    const { error } = await supabase
+                        .from('expenses')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    loadExpenses();
+                    updateStatistics();
+                } catch (error) {
+                    alert('Failed to delete expense: ' + error.message);
+                }
+            }
+        }
+
+        async function updateStatistics() {
+            try {
+                const { data, error } = await supabase
+                    .from('expenses')
+                    .select('amount, date, billed');
+
+                if (error) throw error;
+
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+
+                const totalExpenses = data.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+                const monthlyExpenses = data
+                    .filter(expense => {
+                        const expenseDate = new Date(expense.date);
+                        return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+                    })
+                    .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+
+                const monthlyCount = data.filter(expense => {
                     const expenseDate = new Date(expense.date);
                     return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-                })
-                .reduce((sum, expense) => sum + expense.amount, 0);
+                }).length;
 
-            const monthlyCount = userExpenses.filter(expense => {
-                const expenseDate = new Date(expense.date);
-                return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-            }).length;
+                const billedExpenses = data
+                    .filter(expense => expense.billed)
+                    .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
-            const billedExpenses = userExpenses
-                .filter(expense => expense.billed)
-                .reduce((sum, expense) => sum + expense.amount, 0);
+                const unbilledExpenses = data
+                    .filter(expense => !expense.billed)
+                    .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
-            const unbilledExpenses = userExpenses
-                .filter(expense => !expense.billed)
-                .reduce((sum, expense) => sum + expense.amount, 0);
-
-            document.getElementById('total-expenses').textContent = `₹${totalExpenses.toFixed(2)}`;
-            document.getElementById('monthly-expenses').textContent = `₹${monthlyExpenses.toFixed(2)}`;
-            document.getElementById('billed-expenses').textContent = `₹${billedExpenses.toFixed(2)}`;
-            document.getElementById('unbilled-expenses').textContent = `₹${unbilledExpenses.toFixed(2)}`;
-            document.getElementById('expense-count').textContent = monthlyCount;
+                document.getElementById('total-expenses').textContent = `₹${totalExpenses.toFixed(2)}`;
+                document.getElementById('monthly-expenses').textContent = `₹${monthlyExpenses.toFixed(2)}`;
+                document.getElementById('billed-expenses').textContent = `₹${billedExpenses.toFixed(2)}`;
+                document.getElementById('unbilled-expenses').textContent = `₹${unbilledExpenses.toFixed(2)}`;
+                document.getElementById('expense-count').textContent = monthlyCount;
+            } catch (error) {
+                console.error('Failed to update statistics:', error);
+            }
         }
 
         // Type management functions
@@ -1295,7 +1258,7 @@
             document.getElementById('type-alert').innerHTML = '';
         }
 
-        function handleAddType(e) {
+        async function handleAddType(e) {
             e.preventDefault();
             const newType = document.getElementById('new-type').value.trim();
 
@@ -1304,51 +1267,37 @@
                 return;
             }
 
-            // Clean the type name
-            const cleanedType = cleanTypeName(newType);
+            try {
+                // Check if type already exists
+                const { data: existing } = await supabase
+                    .from('expense_types')
+                    .select('name')
+                    .ilike('name', newType);
 
-            if (!cleanedType) {
-                showAlert('type-alert', 'Type name must contain at least some letters.', 'error');
-                return;
+                if (existing && existing.length > 0) {
+                    showAlert('type-alert', 'This type already exists.', 'error');
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('expense_types')
+                    .insert([{ user_id: currentUser.id, name: newType }]);
+
+                if (error) throw error;
+
+                loadUserTypes();
+                document.getElementById('type').value = newType;
+                showAlert('type-alert', 'Type added successfully!', 'success');
+                setTimeout(() => closeAddTypeModal(), 1500);
+            } catch (error) {
+                showAlert('type-alert', error.message || 'Failed to add type.', 'error');
             }
-
-            // Check if type already exists (case-insensitive)
-            const userTypesList = userTypes[currentUser.email] || [];
-            const existingType = userTypesList.find(type =>
-                cleanTypeName(type).toLowerCase() === cleanedType.toLowerCase()
-            );
-
-            if (existingType) {
-                showAlert('type-alert', 'This type already exists.', 'error');
-                return;
-            }
-
-            // Add new type
-            if (!userTypes[currentUser.email]) {
-                userTypes[currentUser.email] = [...defaultTypes];
-            }
-            userTypes[currentUser.email].push(cleanedType);
-            syncToCloud();
-
-            // Refresh type dropdown
-            loadUserTypes();
-
-            // Select the newly added type
-            document.getElementById('type').value = cleanedType;
-
-            showAlert('type-alert', 'Type added successfully!', 'success');
-            setTimeout(() => closeAddTypeModal(), 1500);
-        }
-
-        function cleanTypeName(typeName) {
-            // Remove special characters and numbers, keep only letters and spaces
-            return typeName.replace(/[^a-zA-Z\s]/g, '').trim();
         }
 
         // Visualization functions
         function showVisualizationModal() {
             document.getElementById('visualization-modal').style.display = 'block';
-            applyDateFilter(); // Load initial chart
+            applyDateFilter();
         }
 
         function closeVisualizationModal() {
@@ -1359,29 +1308,32 @@
             }
         }
 
-        function applyDateFilter() {
+        async function applyDateFilter() {
             const startDate = document.getElementById('start-date').value;
             const endDate = document.getElementById('end-date').value;
             const billingFilter = document.getElementById('billing-filter').value;
-            const userExpenses = expenses[currentUser.email] || [];
 
-            filteredExpenses = userExpenses.filter(expense => {
-                // Date filter
-                const expenseDate = expense.date;
-                const dateMatch = (!startDate || !endDate) || (expenseDate >= startDate && expenseDate <= endDate);
+            try {
+                let query = supabase.from('expenses').select('*');
 
-                // Billing filter
-                let billingMatch = true;
-                if (billingFilter === 'billed') {
-                    billingMatch = expense.billed === true;
-                } else if (billingFilter === 'unbilled') {
-                    billingMatch = expense.billed !== true;
-                }
+                if (startDate) query = query.gte('date', startDate);
+                if (endDate) query = query.lte('date', endDate);
+                if (billingFilter === 'billed') query = query.eq('billed', true);
+                if (billingFilter === 'unbilled') query = query.eq('billed', false);
 
-                return dateMatch && billingMatch;
-            });
+                const { data, error } = await query.order('date');
+                if (error) throw error;
 
-            updateChart('pie'); // Default to pie chart
+                filteredExpenses = data || [];
+                updateChart('pie');
+
+                // Add expense list below chart
+                showExpenseList();
+            } catch (error) {
+                console.error('Failed to filter expenses:', error);
+                filteredExpenses = [];
+                updateChart('pie');
+            }
         }
 
         function updateChartType(type) {
@@ -1484,7 +1436,7 @@
         function prepareTypeChartData() {
             const typeData = {};
             filteredExpenses.forEach(expense => {
-                typeData[expense.type] = (typeData[expense.type] || 0) + expense.amount;
+                typeData[expense.type] = (typeData[expense.type] || 0) + parseFloat(expense.amount);
             });
 
             const colors = [
@@ -1508,7 +1460,7 @@
             const dailyData = {};
             filteredExpenses.forEach(expense => {
                 const date = expense.date;
-                dailyData[date] = (dailyData[date] || 0) + expense.amount;
+                dailyData[date] = (dailyData[date] || 0) + parseFloat(expense.amount);
             });
 
             const sortedDates = Object.keys(dailyData).sort();
@@ -1534,13 +1486,13 @@
             };
         }
 
-        function exportToCSV() {
+        async function exportToCSV() {
             if (filteredExpenses.length === 0) {
                 alert('No expenses to export for the selected date range.');
                 return;
             }
 
-            const headers = ['Date', 'Type', 'Amount', 'Note', 'Billed', 'Timestamp'];
+            const headers = ['Date', 'Type', 'Amount', 'Note', 'Billed'];
             const csvContent = [
                 headers.join(','),
                 ...filteredExpenses.map(expense => [
@@ -1548,8 +1500,7 @@
                     `"${expense.type}"`,
                     expense.amount,
                     `"${expense.note || ''}"`,
-                    expense.billed ? 'Yes' : 'No',
-                    expense.timestamp
+                    expense.billed ? 'Yes' : 'No'
                 ].join(','))
             ].join('\n');
 
@@ -1562,6 +1513,39 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        function showExpenseList() {
+            // Remove existing list
+            const existingList = document.querySelector('.expense-list-container');
+            if (existingList) existingList.remove();
+
+            if (filteredExpenses.length === 0) return;
+
+            const chartContainer = document.querySelector('.chart-container');
+            const listContainer = document.createElement('div');
+            listContainer.className = 'expense-list-container';
+            listContainer.innerHTML = `
+                <div style="margin-top: 2rem;">
+                    <h4 style="margin-bottom: 1rem; color: #374151;">Filtered Expenses (${filteredExpenses.length})</h4>
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+                        ${filteredExpenses.map(expense => `
+                            <div class="expense-item" style="margin: 0; border-radius: 0;">
+                                <div class="expense-details">
+                                    <div class="expense-amount">₹${parseFloat(expense.amount).toFixed(2)}</div>
+                                    <div class="expense-note">${expense.note || 'No description'}</div>
+                                    <div class="expense-meta">
+                                        <span class="expense-type">${expense.type}</span>
+                                        ${expense.billed ? '<span class="billed-badge">BILLED</span>' : ''}
+                                        <span>${formatDate(expense.date)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            chartContainer.parentNode.insertBefore(listContainer, chartContainer.nextSibling);
         }
 
         // Utility functions
