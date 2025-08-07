@@ -1608,6 +1608,8 @@
         }
 
         function closeChangePasswordModal() {
+            if (isPasswordResetFlow) return; // Prevent closing during password reset flow
+
             document.getElementById('change-password-modal').style.display = 'none';
             document.getElementById('change-password-form').reset();
             document.getElementById('change-password-alert').innerHTML = '';
@@ -1623,12 +1625,6 @@
             if (instructionText) {
                 instructionText.remove();
             }
-
-            document.getElementById('change-password-modal').onclick = function(event) {
-                if (event.target === this && !isPasswordResetFlow) {
-                    closeChangePasswordModal();
-                }
-            };
         }
 
         function showChangePassword() {
@@ -2632,7 +2628,7 @@
             if (event.target === visualizationModal) {
                 closeVisualizationModal();
             }
-            if (event.target === changePasswordModal) {
+            if (event.target === changePasswordModal && !isPasswordResetFlow) {
                 closeChangePasswordModal();
             }
             if (event.target === budgetModal) {
