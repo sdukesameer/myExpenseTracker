@@ -1469,10 +1469,17 @@
                 const { error } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo: window.location.origin
                 });
-                if (error) throw error;
 
-                showAlert('forgot-alert', 'Password reset link sent to your email!', 'success');
-                setTimeout(() => showSignIn(), 2000);
+                if (error) {
+                    if (error.message.includes('User not found')) {
+                        showAlert('forgot-alert', 'No account found with this email address.', 'error');
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    showAlert('forgot-alert', 'Password reset link sent to your email!', 'success');
+                    setTimeout(() => showSignIn(), 2000);
+                }
             } catch (error) {
                 showAlert('forgot-alert', error.message, 'error');
             }
@@ -1500,15 +1507,37 @@
                 showAlert('reset-alert', 'Password updated successfully!', 'success');
                 setTimeout(() => {
                     window.location.hash = '';
-                    showSignIn();
+                    showChangePasswordAfterReset();
                 }, 2000);
             } catch (error) {
                 showAlert('reset-alert', error.message, 'error');
             }
         }
 
+        function showChangePasswordAfterReset() {
+            supabase.auth.getUser().then(({ data: { user } }) => {
+                if (user) {
+                    currentUser = user;
+                    showDashboard();
+                    showChangePasswordNoCurrentPassword();
+                } else {
+                    showSignIn();
+                }
+            });
+        }
+
+        function showChangePasswordNoCurrentPassword() {
+            document.getElementById('change-password-modal').style.display = 'block';
+            document.getElementById('current-password').parentElement.style.display = 'none';
+            // Disable close button and outside click
+            document.querySelector('.close-modal').style.display = 'none';
+            document.getElementById('change-password-modal').onclick = null;
+            document.getElementById('new-password').focus();
+        }
+
         async function handleChangePassword(e) {
             e.preventDefault();
+            const currentPasswordField = document.getElementById('current-password');
             const newPassword = document.getElementById('new-password').value;
             const confirmNewPassword = document.getElementById('confirm-new-password').value;
 
@@ -1517,11 +1546,18 @@
                 return;
             }
 
+            if (currentPasswordField.parentElement.style.display !== 'none' && !currentPasswordField.value) {
+                showAlert('change-password-alert', 'Please enter your current password.', 'error');
+                return;
+            }
+
             try {
                 const { error } = await supabase.auth.updateUser({ password: newPassword });
                 if (error) throw error;
 
                 showAlert('change-password-alert', 'Password changed successfully!', 'success');
+                // Re-enable closing after successful password change
+                document.querySelector('.close-modal').style.display = 'block';
                 setTimeout(() => closeChangePasswordModal(), 2000);
             } catch (error) {
                 showAlert('change-password-alert', error.message, 'error');
@@ -1537,6 +1573,8 @@
             document.getElementById('change-password-modal').style.display = 'none';
             document.getElementById('change-password-form').reset();
             document.getElementById('change-password-alert').innerHTML = '';
+            // Show current password field again
+            document.getElementById('current-password').parentElement.style.display = 'block';
         }
 
         async function logout() {
