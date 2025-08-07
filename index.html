@@ -968,7 +968,7 @@
                 </div>
                 <div class="form-group">
                     <label for="signin-password">Password:</label>
-                    <input type="password" id="current-password" autocomplete="current-password">
+                    <input type="password" id="signin-password" required autocomplete="current-password">
                 </div>
                 <button type="submit" class="btn">Sign In</button>
                 <button type="button" class="link-btn" onclick="showForgotPassword()">Forgot Password?</button>
@@ -1170,7 +1170,7 @@
             <button class="close-modal" onclick="closeChangePasswordModal()">&times;</button>
             <h3 style="margin-bottom: 1.5rem; color: #374151;">Change Password</h3>
             <div id="change-password-alert"></div>
-            <<form id="change-password-form">
+            <form id="change-password-form">
                 <div class="form-group">
                     <label for="new-password">New Password:</label>
                     <input type="password" id="new-password" required minlength="6" autocomplete="new-password">
@@ -1288,7 +1288,7 @@
         let filteredExpenses = [];
         let isPasswordResetFlow = false;
         let hasUnsavedBillingChanges = false;
-        let monthlyBudget = parseFloat(localStorage.getItem('monthlyBudget') || '0');
+        let monthlyBudget = 0; // Remove localStorage.getItem part
 
         // Initialize Supabase - FIXED: Remove import.meta usage
         const supabaseUrl = '%VITE_SUPABASE_URL%';
@@ -1907,7 +1907,6 @@
                 document.getElementById('billed-expenses').textContent = `₹${billedExpenses.toFixed(2)}`;
                 document.getElementById('unbilled-expenses').textContent = `₹${unbilledExpenses.toFixed(2)}`;
                 document.getElementById('expense-count').textContent = monthlyCount;
-                updateBudgetDisplay();
             } catch (error) {
                 console.error('Failed to update statistics:', error);
             }
@@ -1972,15 +1971,6 @@
         function closeBudgetModal() {
             document.getElementById('budget-modal').style.display = 'none';
         }
-
-        document.getElementById('budget-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            monthlyBudget = parseFloat(document.getElementById('budget-amount').value);
-            localStorage.setItem('monthlyBudget', monthlyBudget);
-            updateBudgetDisplay();
-            closeBudgetModal();
-            showNotification('Budget updated successfully!', 'success');
-        });
 
         function updateBudgetDisplay() {
             if (!currentUser) return;
@@ -2330,7 +2320,7 @@
                             </div>
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <svg class="edit-icon" id="edit-icon-${expense.id}" onclick="toggleEditMode(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="background: #667eea; color: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
+                                    <svg class="edit-icon" id="edit-icon-${expense.id}" onclick="toggleEditMode(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="24" height="24" style="background: #667eea; color: white; stroke: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
                                         <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
                                         <path d="M14.5 5.5 18.5 9.5"></path>
                                     </svg>
