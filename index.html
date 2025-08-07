@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expense Tracker</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3e%3ctext y='90' font-size='90'%3e💰%3c/text%3e%3c/svg%3e">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3e%3ctext y='90' font-size='90'%3e💰%3c/text%3e%3c/svg%3e">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -131,12 +132,15 @@
 
         .form-group input, .form-group select {
             width: 100%;
-            padding: 0.875rem 1rem;
+            padding: 0.875rem 2.5rem 0.875rem 1rem;
             border: 2px solid #e5e7eb;
             border-radius: 12px;
             font-size: 1rem;
             transition: all 0.3s ease;
-            background: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.8) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") no-repeat right 0.75rem center/1.5em 1.5em;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
         }
 
         .form-group input:focus, .form-group select:focus {
@@ -315,6 +319,28 @@
             transform: translateY(-50%) scale(1.05);
         }
 
+        .delete-type-btn {
+            position: absolute;
+            right: 48px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .delete-type-btn:hover {
+            background: #dc2626;
+            transform: translateY(-50%) scale(1.05);
+        }
+
         .expenses-list {
             background: white;
             border-radius: 20px;
@@ -394,6 +420,121 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }
+
+        .edit-toggle-container {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+
+        .billed-toggle {
+            position: relative;
+            width: 100px;
+            height: 30px;
+            background: #ef4444;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: white;
+            overflow: hidden;
+        }
+
+        .billed-toggle.active {
+            background: #10b981;
+        }
+
+        .billed-toggle::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            z-index: 1;
+        }
+
+        .billed-toggle.active::after {
+            transform: translateX(70px);
+        }
+
+        .billed-toggle::before {
+            content: 'UNBILLED';
+            position: absolute;
+            right: 8px;
+            z-index: 0;
+            font-size: 0.65rem;
+        }
+
+        .billed-toggle.active::before {
+            content: 'BILLED';
+            left: 8px;
+            right: auto;
+        }
+
+        .edit-icon, .save-icon {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            color: #667eea;
+            stroke: #667eea;
+        }
+
+        .edit-icon:hover, .save-icon:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #5a67d8;
+            stroke: #5a67d8;
+        }
+
+        .save-icon {
+            color: #10b981;
+            stroke: #10b981;
+        }
+
+        .save-icon:hover {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            stroke: #059669;
+        }
+
+        .dark-mode .edit-icon, .dark-mode .save-icon {
+            color: #93c5fd;
+            stroke: #93c5fd;
+        }
+
+        .dark-mode .save-icon {
+            color: #6ee7b7;
+            stroke: #6ee7b7;
+        }
+
+        .save-changes-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            display: none;
+            margin: 1rem 0 0 auto;
+            width: fit-content;
+        }
+
+        .save-changes-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
         }
 
         .billed-badge {
@@ -630,7 +771,7 @@
         .docs-toggle {
             position: fixed;
             top: 20px;
-            right: 80px;
+            right: 20px;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
@@ -646,7 +787,7 @@
             text-decoration: none;
             color: white;
         }
-        
+
         .docs-toggle:hover {
             background: rgba(255, 255, 255, 0.2);
             transform: scale(1.05);
@@ -684,28 +825,33 @@
             }
 
             .expense-item {
-                flex-direction: column;
-                align-items: stretch;
+                flex-direction: row;
+                align-items: flex-start;
                 gap: 1rem;
             }
 
             .expense-details {
-                order: 1;
+                flex: 1;
             }
 
             .delete-btn {
-                order: 2;
-                align-self: flex-end;
+                flex-shrink: 0;
             }
 
             .filter-buttons {
                 justify-content: center;
             }
 
+            .modal {
+                padding: 1rem;
+            }
+
             .modal-content {
-                margin: 1rem;
+                margin: 0;
                 padding: 1.5rem;
                 max-height: 85vh;
+                width: 100%;
+                border-radius: 20px;
             }
 
             .chart-container {
@@ -913,6 +1059,7 @@
                                     <option value="">Select Type</option>
                                 </select>
                                 <button type="button" class="add-type-btn" onclick="showAddTypeModal()">+</button>
+                                <button type="button" class="delete-type-btn" onclick="showDeleteTypeModal()" title="Delete type">-</button>
                             </div>
                         </div>
                         <div class="form-group">
@@ -937,7 +1084,7 @@
             <div class="expenses-list">
                 <div class="expenses-header">
                     <h3>Recent Expenses</h3>
-                    <button class="btn btn-visualize" onclick="showVisualizationModal()">📊 Visualize</button>
+                    <button class="btn btn-visualize" onclick="showVisualizationModal()">📊 Analytics</button>
                 </div>
                 <div id="expenses-container">
                     <p style="text-align: center; color: #9ca3af; padding: 3rem;">No expenses added yet. Add your first expense above!</p>
@@ -1002,11 +1149,29 @@
         </div>
     </div>
 
+    <!-- Delete Type Modal -->
+    <div id="delete-type-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeDeleteTypeModal()">&times;</button>
+            <h3 style="margin-bottom: 1.5rem; color: #374151;">Delete Expense Type</h3>
+            <div id="delete-type-alert"></div>
+            <form id="delete-type-form">
+                <div class="form-group">
+                    <label for="delete-type-select">Select Type to Delete:</label>
+                    <select id="delete-type-select" required>
+                        <option value="">Select Type</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #ef4444, #dc2626);">Delete Type</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Visualization Modal -->
     <div id="visualization-modal" class="modal">
         <div class="modal-content">
             <button class="close-modal" onclick="closeVisualizationModal()">&times;</button>
-            <h3 style="margin-bottom: 1.5rem; color: #374151;">Expense Visualization</h3>
+            <h3 style="margin-bottom: 1.5rem; color: #374151;">Expense Visualization / Export</h3>
 
             <div class="date-filters">
                 <div class="filter-row">
@@ -1027,9 +1192,9 @@
                         </select>
                     </div>
                 </div>
-                <div class="filter-buttons">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                    <button type="button" class="btn btn-small" onclick="exportToCSV()">📥 Export CSV</button>
                     <button type="button" class="btn btn-small" onclick="applyDateFilter()">Apply Filter</button>
-                    <button type="button" class="btn btn-small btn-secondary" onclick="exportToCSV()">📥 Export CSV</button>
                 </div>
             </div>
 
@@ -1039,11 +1204,11 @@
 
             <div style="margin-top: 2rem;">
                 <h4 style="margin-bottom: 1rem; color: #374151;">Chart Type:</h4>
-                <div class="filter-buttons">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
                     <button type="button" class="btn btn-small" onclick="updateChartType('pie')">Pie Chart</button>
                     <button type="button" class="btn btn-small" onclick="updateChartType('bar')">Bar Chart</button>
                     <button type="button" class="btn btn-small" onclick="updateChartType('line')">Line Chart</button>
-                    <button type="button" class="btn btn-small" onclick="updateChartType('doughnut')">Doughnut Chart</button>
+                    <button type="button" class="btn btn-small" onclick="updateChartType('doughnut')">Doughnut</button>
                 </div>
             </div>
         </div>
@@ -1289,6 +1454,13 @@
             loadExpenses();
             updateStatistics();
             updateBudgetDisplay();
+            loadUserBudget();
+
+            // Update budget button text after loading
+            setTimeout(() => {
+                const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
+                document.querySelector('.budget-tracker h3 + .btn').textContent = budgetText;
+            }, 100);
         }
 
         async function loadUserTypes() {
@@ -1511,6 +1683,8 @@
 
         // Budget management
         function setBudget() {
+            const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
+            document.querySelector('.budget-tracker h3 + .btn').textContent = budgetText;
             document.getElementById('budget-modal').style.display = 'block';
             document.getElementById('budget-amount').value = monthlyBudget || '';
         }
@@ -1581,6 +1755,8 @@
 
         // Visualization functions
         function showVisualizationModal() {
+            // Update modal title
+            document.querySelector('#visualization-modal h3').textContent = 'Expense Analytics & Export';
             document.getElementById('visualization-modal').style.display = 'block';
             applyDateFilter();
         }
@@ -1733,6 +1909,7 @@
             return {
                 labels: Object.keys(typeData),
                 datasets: [{
+                    label: 'Amount (₹)',
                     data: Object.values(typeData),
                     backgroundColor: colors.slice(0, Object.keys(typeData).length),
                     borderWidth: 2,
@@ -1815,21 +1992,38 @@
                     <h4 style="margin-bottom: 1rem; color: #374151;">Filtered Expenses (${filteredExpenses.length})</h4>
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
                         ${filteredExpenses.map(expense => `
-                            <div class="expense-item" style="margin: 0; border-radius: 0;">
+                            <div class="expense-item" style="margin: 0; border-radius: 0;" data-id="${expense.id}">
                                 <div class="expense-details">
                                     <div class="expense-amount">₹${parseFloat(expense.amount).toFixed(2)}</div>
                                     <div class="expense-note">${expense.note || 'No description'}</div>
                                     <div class="expense-meta">
                                         <span class="expense-type">${expense.type}</span>
-                                        ${expense.billed ? '<span class="billed-badge">BILLED</span>' : ''}
+                                        <span class="billed-status" data-billed="${expense.billed}">
+                                            ${expense.billed ? '<span class="billed-badge">BILLED</span>' : '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>'}
+                                        </span>
                                         <span>${formatDate(expense.date)}</span>
+                                        <div class="edit-toggle-container" id="edit-container-${expense.id}">
+                                            <div class="billed-toggle ${expense.billed ? 'active' : ''}" onclick="toggleBillingStatus(${expense.id})"></div>
+                                        </div>
                                     </div>
                                 </div>
+                                <svg class="edit-icon" id="edit-icon-${expense.id}" onclick="toggleEditMode(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
+                                    <path d="M14.5 5.5 18.5 9.5"></path>
+                                </svg>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             `;
+            // Add save changes button after the expense list
+            if (filteredExpenses.length > 0) {
+                listContainer.innerHTML += `
+                    <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+                        <button class="save-changes-btn" onclick="saveAllChanges()">Save Changes</button>
+                    </div>
+                `;
+            }
             chartContainer.parentNode.insertBefore(listContainer, chartContainer.nextSibling);
         }
 
@@ -1851,6 +2045,221 @@
             });
         }
 
+        // Global variables for edit mode
+        let editedExpenses = new Set();
+        let expenseEdits = {};
+
+        // Delete type functions
+        function showDeleteTypeModal() {
+            document.getElementById('delete-type-modal').style.display = 'block';
+
+            // Auto-select the current type if one is selected
+            const currentType = document.getElementById('type').value;
+
+            loadTypesForDeletion().then(() => {
+                if (currentType) {
+                    document.getElementById('delete-type-select').value = currentType;
+                }
+            });
+        }
+
+        function closeDeleteTypeModal() {
+            document.getElementById('delete-type-modal').style.display = 'none';
+            document.getElementById('delete-type-form').reset();
+            document.getElementById('delete-type-alert').innerHTML = '';
+        }
+
+        async function loadTypesForDeletion() {
+            try {
+                const { data, error } = await supabase
+                    .from('expense_types')
+                    .select('name')
+                    .order('name');
+
+                if (error) throw error;
+
+                const typeSelect = document.getElementById('delete-type-select');
+                typeSelect.innerHTML = '<option value="">Select Type</option>';
+
+                data.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.name;
+                    option.textContent = type.name;
+                    typeSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load types:', error);
+            }
+        }
+
+        document.getElementById('delete-type-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const typeName = document.getElementById('delete-type-select').value;
+
+            if (!typeName) {
+                showAlert('delete-type-alert', 'Please select a type to delete.', 'error');
+                return;
+            }
+
+            try {
+                // Check if type is being used
+                const { data: usedTypes, error: checkError } = await supabase
+                    .from('expenses')
+                    .select('type')
+                    .eq('type', typeName)
+                    .limit(1);
+
+                if (checkError) throw checkError;
+
+                if (usedTypes && usedTypes.length > 0) {
+                    showAlert('delete-type-alert', 'Cannot delete type that is being used in expenses.', 'error');
+                    return;
+                }
+
+                if (!confirm(`Are you sure you want to delete the type "${typeName}"?`)) {
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('expense_types')
+                    .delete()
+                    .eq('name', typeName)
+                    .eq('user_id', currentUser.id);
+
+                if (error) throw error;
+
+                loadUserTypes();
+                showAlert('delete-type-alert', 'Type deleted successfully!', 'success');
+                setTimeout(() => closeDeleteTypeModal(), 1500);
+            } catch (error) {
+                showAlert('delete-type-alert', error.message || 'Failed to delete type.', 'error');
+            }
+        });
+
+        // Edit expense functions
+        function toggleEditMode(expenseId) {
+            const container = document.getElementById(`edit-container-${expenseId}`);
+            const icon = document.getElementById(`edit-icon-${expenseId}`);
+            const isVisible = container.style.display === 'flex';
+
+            if (isVisible) {
+                // Switch back to pencil icon and hide toggle
+                container.style.display = 'none';
+                icon.innerHTML = `
+                    <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
+                    <path d="M14.5 5.5 18.5 9.5"></path>
+                `;
+                icon.className = 'edit-icon';
+                editedExpenses.delete(expenseId);
+                delete expenseEdits[expenseId];
+            } else {
+                // Show toggle and switch to check/save icon
+                container.style.display = 'flex';
+                icon.innerHTML = `
+                    <polyline points="20,6 9,17 4,12"></polyline>
+                `;
+                icon.className = 'save-icon';
+                editedExpenses.add(expenseId);
+                // Initialize with current state
+                const billedStatus = container.parentNode.querySelector('.billed-status').dataset.billed === 'true';
+                expenseEdits[expenseId] = { billed: billedStatus };
+            }
+
+            updateSaveButton();
+        }
+
+        function toggleBillingStatus(expenseId) {
+            const toggle = document.querySelector(`#edit-container-${expenseId} .billed-toggle`);
+            const isActive = toggle.classList.contains('active');
+
+            toggle.classList.toggle('active');
+            expenseEdits[expenseId] = { billed: !isActive };
+        }
+
+        function saveExpenseEdit(expenseId) {
+            // Individual save - remove from edit mode
+            toggleEditMode(expenseId);
+        }
+
+        function updateSaveButton() {
+            const saveBtn = document.querySelector('.expense-list-container .save-changes-btn');
+            if (saveBtn) {
+                saveBtn.style.display = editedExpenses.size > 0 ? 'block' : 'none';
+            }
+        }
+
+        async function saveAllChanges() {
+            try {
+                for (const [expenseId, changes] of Object.entries(expenseEdits)) {
+                    const { error } = await supabase
+                        .from('expenses')
+                        .update({ billed: changes.billed })
+                        .eq('id', expenseId)
+                        .eq('user_id', currentUser.id);
+
+                    if (error) throw error;
+                }
+
+                // Clear edit state
+                editedExpenses.clear();
+                expenseEdits = {};
+                updateSaveButton();
+
+                // Refresh displays
+                applyDateFilter();
+                loadExpenses();
+                updateStatistics();
+
+                showNotification('Changes saved successfully!', 'success');
+            } catch (error) {
+                showNotification('Failed to save changes: ' + error.message, 'error');
+            }
+        }
+
+        // Update budget to use database
+        async function loadUserBudget() {
+            try {
+                const { data, error } = await supabase
+                    .from('user_budgets')
+                    .select('monthly_budget')
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') throw error;
+
+                monthlyBudget = data ? data.monthly_budget : 0;
+            } catch (error) {
+                console.error('Failed to load budget:', error);
+                monthlyBudget = 0;
+            }
+        }
+
+        // Update setBudget function
+        document.getElementById('budget-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const newBudget = parseFloat(document.getElementById('budget-amount').value);
+
+            try {
+                const { error } = await supabase
+                    .from('user_budgets')
+                    .upsert([{
+                        user_id: currentUser.id,
+                        monthly_budget: newBudget
+                    }], { onConflict: 'user_id' });
+
+                if (error) throw error;
+
+                monthlyBudget = newBudget;
+                updateBudgetDisplay();
+                // Update button text
+                document.querySelector('.budget-tracker h3 + .btn').textContent = 'Update Budget';
+                closeBudgetModal();
+                showNotification('Budget updated successfully!', 'success');
+            } catch (error) {
+                showNotification('Failed to update budget: ' + error.message, 'error');
+            }
+        });
+
         // Close modal when clicking outside
         window.onclick = function(event) {
             const addTypeModal = document.getElementById('add-type-modal');
@@ -1869,6 +2278,9 @@
             }
             if (event.target === budgetModal) {
                 closeBudgetModal();
+            }
+            if (event.target === document.getElementById('delete-type-modal')) {
+                closeDeleteTypeModal();
             }
         }
     </script>
