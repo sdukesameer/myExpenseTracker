@@ -59,17 +59,6 @@ A modern, responsive web application for tracking personal expenses with advance
 - **Deployment**: Netlify
 - **Styling**: Custom CSS with modern design principles
 
-## 📱 Screenshots
-
-### Dashboard Overview
-![Dashboard](https://via.placeholder.com/800x400/667eea/ffffff?text=Dashboard+Overview)
-
-### Expense Analytics
-![Analytics](https://via.placeholder.com/800x400/764ba2/ffffff?text=Interactive+Charts)
-
-### Budget Tracking
-![Budget](https://via.placeholder.com/800x400/ffeaa7/2d3436?text=Budget+Management)
-
 ## 🏗️ Installation & Setup
 
 ### Prerequisites
