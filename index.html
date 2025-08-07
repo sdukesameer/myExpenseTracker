@@ -1170,11 +1170,7 @@
             <button class="close-modal" onclick="closeChangePasswordModal()">&times;</button>
             <h3 style="margin-bottom: 1.5rem; color: #374151;">Change Password</h3>
             <div id="change-password-alert"></div>
-            <form id="change-password-form">
-                <div class="form-group">
-                    <label for="current-password">Current Password:</label>
-                    <input type="password" id="current-password" required autocomplete="current-password">
-                </div>
+            <<form id="change-password-form">
                 <div class="form-group">
                     <label for="new-password">New Password:</label>
                     <input type="password" id="new-password" required minlength="6" autocomplete="new-password">
@@ -1406,8 +1402,16 @@
 
         async function handleSignIn(e) {
             e.preventDefault();
-            const email = document.getElementById('signin-email').value;
-            const password = document.getElementById('signin-password').value;
+            const emailField = document.getElementById('signin-email');
+            const passwordField = document.getElementById('signin-password');
+
+            if (!emailField || !passwordField) {
+                showAlert('signin-alert', 'Form fields not found.', 'error');
+                return;
+            }
+
+            const email = emailField.value;
+            const password = passwordField.value;
 
             try {
                 const { data, error } = await supabase.auth.signInWithPassword({
@@ -1539,7 +1543,6 @@
         async function showForcedPasswordChange() {
             hideAllForms();
 
-            // Mark user as requiring password reset in database
             try {
                 await supabase
                     .from('user_profiles')
@@ -1552,7 +1555,6 @@
             }
 
             document.getElementById('change-password-modal').style.display = 'block';
-            document.getElementById('current-password').parentElement.style.display = 'none';
 
             const closeBtn = document.querySelector('#change-password-modal .close-modal');
             closeBtn.style.display = 'none';
@@ -1575,7 +1577,6 @@
 
         async function handleChangePassword(e) {
             e.preventDefault();
-            const currentPasswordField = document.getElementById('current-password');
             const newPassword = document.getElementById('new-password').value;
             const confirmNewPassword = document.getElementById('confirm-new-password').value;
 
@@ -1589,16 +1590,10 @@
                 return;
             }
 
-            if (!isPasswordResetFlow && currentPasswordField.parentElement.style.display !== 'none' && !currentPasswordField.value) {
-                showAlert('change-password-alert', 'Please enter your current password.', 'error');
-                return;
-            }
-
             try {
                 const { error } = await supabase.auth.updateUser({ password: newPassword });
                 if (error) throw error;
 
-                // Clear password reset flag
                 if (isPasswordResetFlow) {
                     await supabase
                         .from('user_profiles')
@@ -1631,7 +1626,7 @@
         }
 
         function closeChangePasswordModal() {
-            if (isPasswordResetFlow) return; // Prevent closing during password reset flow
+            if (isPasswordResetFlow) return;
 
             document.getElementById('change-password-modal').style.display = 'none';
             document.getElementById('change-password-form').reset();
@@ -1639,7 +1634,6 @@
 
             const closeBtn = document.querySelector('#change-password-modal .close-modal');
             closeBtn.style.display = 'block';
-            document.getElementById('current-password').parentElement.style.display = 'block';
 
             const modalTitle = document.querySelector('#change-password-modal h3');
             modalTitle.textContent = 'Change Password';
