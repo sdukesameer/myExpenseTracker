@@ -1290,6 +1290,7 @@
         let currentUser = null;
         let currentChart = null;
         let filteredExpenses = [];
+        let isPasswordResetFlow = false;
         let hasUnsavedBillingChanges = false;
         let monthlyBudget = parseFloat(localStorage.getItem('monthlyBudget') || '0');
 
@@ -1332,31 +1333,43 @@
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', async function() {
-            // Initialize theme on load
             if (isDarkMode) {
                 document.body.classList.add('dark-mode');
                 document.getElementById('theme-icon').textContent = '☀️';
             }
 
-            // Set today's date as default
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('date').value = today;
             document.getElementById('end-date').value = today;
 
-            // Set start date to 1st day of current month in IST
             const firstDayOfMonth = new Date();
             firstDayOfMonth.setDate(1);
-            firstDayOfMonth.setHours(5, 30, 0, 0); // IST is UTC+5:30
+            firstDayOfMonth.setHours(5, 30, 0, 0);
             document.getElementById('start-date').value = firstDayOfMonth.toISOString().split('T')[0];
 
-            // Check for existing session
+            supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'PASSWORD_RECOVERY') {
+                    isPasswordResetFlow = true;
+                    currentUser = session?.user || null;
+                    showForcedPasswordChange();
+                } else if (event === 'SIGNED_IN' && session?.user) {
+                    if (!isPasswordResetFlow) {
+                        currentUser = session.user;
+                        showDashboard();
+                    }
+                } else if (event === 'SIGNED_OUT') {
+                    currentUser = null;
+                    isPasswordResetFlow = false;
+                    showSignIn();
+                }
+            });
+
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 currentUser = user;
                 showDashboard();
             }
 
-            // Form event listeners
             document.getElementById('signin').addEventListener('submit', handleSignIn);
             document.getElementById('signup').addEventListener('submit', handleSignUp);
             document.getElementById('forgot-password').addEventListener('submit', handleForgotPassword);
@@ -1364,15 +1377,7 @@
             document.getElementById('add-type-form').addEventListener('submit', handleAddType);
             document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
 
-            // Call updateDateDisplay when page loads
             updateDateDisplay();
-
-            // Check for password reset token in URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            if (hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery') {
-                showPasswordResetForm();
-            }
         });
 
         // Authentication functions
@@ -1471,17 +1476,13 @@
                 });
 
                 if (error) {
-                    if (error.message.includes('User not found')) {
-                        showAlert('forgot-alert', 'No account found with this email address.', 'error');
-                    } else {
-                        throw error;
-                    }
+                    showAlert('forgot-alert', 'Invalid email or user doesn\'t exist. Please sign up.', 'error');
                 } else {
                     showAlert('forgot-alert', 'Password reset link sent to your email!', 'success');
                     setTimeout(() => showSignIn(), 2000);
                 }
             } catch (error) {
-                showAlert('forgot-alert', error.message, 'error');
+                showAlert('forgot-alert', 'Invalid email or user doesn\'t exist. Please sign up.', 'error');
             }
         }
 
@@ -1535,6 +1536,30 @@
             document.getElementById('new-password').focus();
         }
 
+        function showForcedPasswordChange() {
+            hideAllForms();
+            document.getElementById('change-password-modal').style.display = 'block';
+            document.getElementById('current-password').parentElement.style.display = 'none';
+
+            const closeBtn = document.querySelector('#change-password-modal .close-modal');
+            closeBtn.style.display = 'none';
+            document.getElementById('change-password-modal').onclick = null;
+
+            const modalTitle = document.querySelector('#change-password-modal h3');
+            modalTitle.textContent = 'Set New Password';
+
+            let instructionText = document.getElementById('password-reset-instruction');
+            if (!instructionText) {
+                instructionText = document.createElement('p');
+                instructionText.id = 'password-reset-instruction';
+                instructionText.style.cssText = 'color: #6b7280; margin-bottom: 1rem; font-size: 0.9rem; text-align: center;';
+                instructionText.textContent = 'Please set a new password to continue using your account.';
+                modalTitle.insertAdjacentElement('afterend', instructionText);
+            }
+
+            document.getElementById('new-password').focus();
+        }
+
         async function handleChangePassword(e) {
             e.preventDefault();
             const currentPasswordField = document.getElementById('current-password');
@@ -1546,7 +1571,12 @@
                 return;
             }
 
-            if (currentPasswordField.parentElement.style.display !== 'none' && !currentPasswordField.value) {
+            if (newPassword.length < 6) {
+                showAlert('change-password-alert', 'Password must be at least 6 characters long.', 'error');
+                return;
+            }
+
+            if (!isPasswordResetFlow && currentPasswordField.parentElement.style.display !== 'none' && !currentPasswordField.value) {
                 showAlert('change-password-alert', 'Please enter your current password.', 'error');
                 return;
             }
@@ -1556,9 +1586,17 @@
                 if (error) throw error;
 
                 showAlert('change-password-alert', 'Password changed successfully!', 'success');
-                // Re-enable closing after successful password change
-                document.querySelector('.close-modal').style.display = 'block';
-                setTimeout(() => closeChangePasswordModal(), 2000);
+
+                if (isPasswordResetFlow) {
+                    setTimeout(() => {
+                        isPasswordResetFlow = false;
+                        closeChangePasswordModal();
+                        showDashboard();
+                        showNotification('Password updated successfully! You can now use your account.', 'success');
+                    }, 1500);
+                } else {
+                    setTimeout(() => closeChangePasswordModal(), 2000);
+                }
             } catch (error) {
                 showAlert('change-password-alert', error.message, 'error');
             }
@@ -1573,13 +1611,35 @@
             document.getElementById('change-password-modal').style.display = 'none';
             document.getElementById('change-password-form').reset();
             document.getElementById('change-password-alert').innerHTML = '';
-            // Show current password field again
+
+            const closeBtn = document.querySelector('#change-password-modal .close-modal');
+            closeBtn.style.display = 'block';
             document.getElementById('current-password').parentElement.style.display = 'block';
+
+            const modalTitle = document.querySelector('#change-password-modal h3');
+            modalTitle.textContent = 'Change Password';
+
+            const instructionText = document.getElementById('password-reset-instruction');
+            if (instructionText) {
+                instructionText.remove();
+            }
+
+            document.getElementById('change-password-modal').onclick = function(event) {
+                if (event.target === this && !isPasswordResetFlow) {
+                    closeChangePasswordModal();
+                }
+            };
+        }
+
+        function showChangePassword() {
+            document.getElementById('change-password-modal').style.display = 'block';
+            document.getElementById('current-password').focus();
         }
 
         async function logout() {
             await supabase.auth.signOut();
             currentUser = null;
+            isPasswordResetFlow = false;
             showSignIn();
         }
 
