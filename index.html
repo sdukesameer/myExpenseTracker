@@ -52,7 +52,7 @@
         .notification.error { background: linear-gradient(135deg, #ef4444, #dc2626); }
 
         .theme-toggle {
-            position: fixed;
+            position: absolute;
             top: 20px;
             left: 20px;
             background: rgba(255, 255, 255, 0.1);
@@ -730,23 +730,6 @@
             flex-wrap: wrap;
         }
 
-        .sync-status {
-            background: rgba(16, 185, 129, 0.1);
-            color: #065f46;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            text-align: center;
-            margin-bottom: 1rem;
-            border: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        .sync-status.offline {
-            background: rgba(239, 68, 68, 0.1);
-            color: #991b1b;
-            border-color: rgba(239, 68, 68, 0.2);
-        }
-
         .budget-tracker {
             background: linear-gradient(135deg, #ffeaa7, #fab1a0);
             color: #2d3436;
@@ -776,7 +759,7 @@
         }
 
         .docs-toggle {
-            position: fixed;
+            position: absolute;
             top: 20px;
             right: 20px;
             background: rgba(255, 255, 255, 0.1);
@@ -916,10 +899,6 @@
     <div id="notification-container"></div>
 
     <div class="container">
-        <!-- Sync Status -->
-        <div id="sync-status" class="sync-status hidden">
-            🌐 Connected - Data synced across devices
-        </div>
 
         <!-- Sign In Form -->
         <div id="signin-form" class="auth-container">
@@ -1093,7 +1072,7 @@
             <div class="expenses-list">
                 <div class="expenses-header">
                     <h3>Recent Expenses</h3>
-                    <button class="btn btn-visualize" onclick="showVisualizationModal()">📊 Analytics</button>
+                    <button class="btn btn-visualize" onclick="showVisualizationModal()">📊 Edit / Analytics</button>
                 </div>
                 <div id="expenses-container">
                     <p style="text-align: center; color: #9ca3af; padding: 3rem;">No expenses added yet. Add your first expense above!</p>
@@ -1270,7 +1249,7 @@
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', async function() {
-            // FIXED: Initialize theme on load
+            // Initialize theme on load
             if (isDarkMode) {
                 document.body.classList.add('dark-mode');
                 document.getElementById('theme-icon').textContent = '☀️';
@@ -1291,8 +1270,6 @@
             if (user) {
                 currentUser = user;
                 showDashboard();
-            } else {
-                document.getElementById('sync-status').classList.add('hidden');
             }
 
             // Form event listeners
@@ -1311,19 +1288,16 @@
         function showSignIn() {
             hideAllForms();
             document.getElementById('signin-form').classList.remove('hidden');
-            document.getElementById('sync-status').classList.add('hidden');
         }
 
         function showSignUp() {
             hideAllForms();
             document.getElementById('signup-form').classList.remove('hidden');
-            document.getElementById('sync-status').classList.add('hidden');
         }
 
         function showForgotPassword() {
             hideAllForms();
             document.getElementById('forgot-password-form').classList.remove('hidden');
-            document.getElementById('sync-status').classList.add('hidden');
         }
 
         function hideAllForms() {
@@ -1369,7 +1343,11 @@
                 const { data, error } = await supabase.auth.signUp({
                     email, password,
                     options: {
-                        data: { name },
+                        data: {
+                            display_name: name,
+                            name: name,
+                            full_name: name
+                        },
                         emailRedirectTo: window.location.origin
                     }
                 });
@@ -1450,14 +1428,16 @@
         function showDashboard() {
             hideAllForms();
             document.getElementById('dashboard').style.display = 'block';
-            document.getElementById('sync-status').classList.remove('hidden');
-            document.getElementById('sync-status').textContent = '🌐 Connected - Data synced across devices';
 
-            // Update user info
-            const userName = currentUser.user_metadata?.name || currentUser.email.split('@')[0];
-            document.getElementById('user-name').textContent = `Welcome, ${userName}!`;
+            // Update user info - prioritize display name from metadata
+            const displayName = currentUser.user_metadata?.display_name ||
+                            currentUser.user_metadata?.name ||
+                            currentUser.user_metadata?.full_name ||
+                            currentUser.email.split('@')[0];
+
+            document.getElementById('user-name').textContent = `Welcome, ${displayName}!`;
             document.getElementById('user-email').textContent = currentUser.email;
-            document.getElementById('user-avatar').textContent = userName.charAt(0).toUpperCase();
+            document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
             // Load user types and expenses
             loadUserTypes();
@@ -2159,13 +2139,14 @@
             const container = document.getElementById(`edit-container-${expenseId}`);
             const icon = document.getElementById(`edit-icon-${expenseId}`);
             const isVisible = container.style.display === 'flex';
+            const originalBilledStatus = container.closest('.expense-item').querySelector('.billed-status').dataset.billed === 'true';
 
             if (isVisible) {
                 // When tick is clicked, update the billed-badge display based on current edits
                 const billedStatusSpan = container.closest('.expense-item').querySelector('.billed-status');
                 const currentEdit = expenseEdits[expenseId];
 
-                if (currentEdit) {
+                if (currentEdit && currentEdit.billed !== undefined) {
                     // Update visual display based on edited state
                     billedStatusSpan.innerHTML = currentEdit.billed ?
                         '<span class="billed-badge">BILLED</span>' :
@@ -2181,7 +2162,6 @@
                     <path d="M14.5 5.5 18.5 9.5"></path>
                 `;
                 icon.className = 'edit-icon';
-                // Don't remove from editedExpenses if there are unsaved changes
             } else {
                 // Show toggle and switch to check/save icon
                 container.style.display = 'flex';
@@ -2189,11 +2169,13 @@
                     <polyline points="20,6 9,17 4,12"></polyline>
                 `;
                 icon.className = 'save-icon';
-                editedExpenses.add(expenseId);
-                // Initialize with current state if not already edited
+
+                // Initialize with current state if not already tracked
                 if (!expenseEdits[expenseId]) {
-                    const billedStatus = container.parentNode.querySelector('.billed-status').dataset.billed === 'true';
-                    expenseEdits[expenseId] = { billed: billedStatus };
+                    expenseEdits[expenseId] = {
+                        originalBilled: originalBilledStatus,
+                        billed: originalBilledStatus
+                    };
                 }
             }
 
@@ -2202,14 +2184,27 @@
 
         function toggleBillingStatus(expenseId) {
             const toggle = document.querySelector(`#edit-container-${expenseId} .billed-toggle`);
+            const originalBilledStatus = document.querySelector(`[data-id="${expenseId}"] .billed-status`).dataset.billed === 'true';
             const isActive = toggle.classList.contains('active');
+            const newStatus = !isActive;
 
             toggle.classList.toggle('active');
-            expenseEdits[expenseId] = { billed: !isActive };
-            editedExpenses.add(expenseId);
-            hasUnsavedBillingChanges = true;
 
-            // Don't update the billed-badge here - only update the toggle visual state
+            // Track the change
+            if (!expenseEdits[expenseId]) {
+                expenseEdits[expenseId] = { originalBilled: originalBilledStatus };
+            }
+            expenseEdits[expenseId].billed = newStatus;
+
+            // Only add to edited if different from original
+            if (newStatus !== originalBilledStatus) {
+                editedExpenses.add(expenseId);
+            } else {
+                editedExpenses.delete(expenseId);
+                delete expenseEdits[expenseId];
+            }
+
+            hasUnsavedBillingChanges = editedExpenses.size > 0;
             updateSaveButton();
         }
 
@@ -2221,7 +2216,11 @@
         function updateSaveButton() {
             const saveBtn = document.querySelector('.expense-list-container .save-changes-btn');
             if (saveBtn) {
-                saveBtn.style.display = editedExpenses.size > 0 ? 'block' : 'none';
+                const hasActualChanges = Array.from(editedExpenses).some(id => {
+                    const edit = expenseEdits[id];
+                    return edit && edit.billed !== edit.originalBilled;
+                });
+                saveBtn.style.display = hasActualChanges ? 'block' : 'none';
             }
         }
 
