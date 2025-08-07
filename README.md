@@ -16,6 +16,7 @@ A modern, responsive web application for tracking personal expenses with advance
 - **Billing Status** - Track reimbursable vs personal expenses
 - **Date Display** - Beautiful date formatting (e.g., "Wednesday, 20th July 2025")
 - **Expense History** - View, search, and delete expense records
+- **Edit Mode** - Toggle billing status directly from analytics view
 
 ### 📊 Analytics & Visualization
 - **Interactive Charts** - Pie, bar, line, and doughnut charts
@@ -23,12 +24,14 @@ A modern, responsive web application for tracking personal expenses with advance
 - **Billing Status Filters** - View billed vs unbilled expenses
 - **Real-time Statistics** - Monthly totals, expense counts, and summaries
 - **Data Export** - Export filtered data to CSV format
+- **Inline Editing** - Edit expense billing status from analytics view
 
 ### 💰 Budget Management
 - **Monthly Budget Setting** - Set and track monthly spending limits
 - **Visual Progress Bar** - See budget utilization at a glance
 - **Smart Alerts** - Warnings when approaching or exceeding budget
 - **Remaining Balance** - Real-time calculation of remaining budget
+- **Cloud Sync** - Budget data synchronized across devices
 
 ### 🎨 User Experience
 - **Responsive Design** - Works perfectly on desktop, tablet, and mobile
@@ -77,7 +80,7 @@ A modern, responsive web application for tracking personal expenses with advance
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/myExpenseTracker.git
+   git clone https://github.com/sdukesameer/myExpenseTracker.git
    cd myExpenseTracker
    ```
 
@@ -113,7 +116,7 @@ A modern, responsive web application for tracking personal expenses with advance
    -- Expenses table
    CREATE TABLE expenses (
      id SERIAL PRIMARY KEY,
-     user_id UUID REFERENCES auth.users(id),
+     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
      amount DECIMAL(10,2) NOT NULL,
      type VARCHAR(100) NOT NULL,
      note TEXT,
@@ -125,9 +128,19 @@ A modern, responsive web application for tracking personal expenses with advance
    -- Expense types table
    CREATE TABLE expense_types (
      id SERIAL PRIMARY KEY,
-     user_id UUID REFERENCES auth.users(id),
+     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
      name VARCHAR(100) NOT NULL,
-     created_at TIMESTAMP DEFAULT NOW()
+     created_at TIMESTAMP DEFAULT NOW(),
+     UNIQUE(user_id, name)
+   );
+
+   -- User budgets table
+   CREATE TABLE user_budgets (
+     id SERIAL PRIMARY KEY,
+     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+     monthly_budget DECIMAL(10,2) NOT NULL DEFAULT 0,
+     created_at TIMESTAMP DEFAULT NOW(),
+     updated_at TIMESTAMP DEFAULT NOW()
    );
    ```
 
@@ -136,6 +149,7 @@ A modern, responsive web application for tracking personal expenses with advance
    -- Enable RLS
    ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
    ALTER TABLE expense_types ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE user_budgets ENABLE ROW LEVEL SECURITY;
 
    -- Create policies
    CREATE POLICY "Users can manage their own expenses" ON expenses
@@ -143,21 +157,25 @@ A modern, responsive web application for tracking personal expenses with advance
 
    CREATE POLICY "Users can manage their own types" ON expense_types
      FOR ALL USING (auth.uid() = user_id);
+
+   CREATE POLICY "Users can manage their own budget" ON user_budgets
+     FOR ALL USING (auth.uid() = user_id);
    ```
 
 ## 🚀 Deployment
 
 ### Netlify Deployment
 
-1. **Connect your repository** to Netlify
-2. **Set environment variables** in Netlify dashboard:
+1. **Fork this repository** on GitHub
+2. **Connect your repository** to Netlify
+3. **Set environment variables** in Netlify dashboard:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-3. **Deploy** - Netlify will automatically build and deploy
+4. **Deploy** - Netlify will automatically build and deploy using `netlify.toml`
 
 ### Manual Deployment
 
-1. **Replace environment variables** in `index.html`
+1. **Update environment variables** in `index.html` (replace placeholders)
 2. **Upload files** to your web server
 3. **Configure HTTPS** for security
 
@@ -175,10 +193,11 @@ A modern, responsive web application for tracking personal expenses with advance
 3. Click "Add Expense" to save
 
 ### Viewing Analytics
-1. Click "📊 Visualize" to open the analytics modal
+1. Click "📊 Analytics" to open the analytics modal
 2. Set date ranges and filters
 3. Switch between chart types (pie, bar, line, doughnut)
-4. Export data to CSV for external analysis
+4. Edit billing status inline by clicking the pencil icon
+5. Export data to CSV for external analysis
 
 ### Budget Management
 1. Set your monthly budget amount
@@ -219,20 +238,26 @@ A: Verify you're signed in and have an active internet connection.
 **Q: Charts not displaying?**
 A: Ensure you have expense data and try refreshing the page.
 
+**Q: Budget not saving?**
+A: Make sure you're logged in and the budget amount is valid.
+
 ### Getting Help
 - 📧 **Email**: [sdukesameer@gmail.com](mailto:sdukesameer@gmail.com)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/yourusername/myExpenseTracker/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/myExpenseTracker/discussions)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/sdukesameer/myExpenseTracker/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/sdukesameer/myExpenseTracker/discussions)
 
 ## 🎯 Roadmap
 
 - [ ] **Mobile App** - React Native version
-- [ ] **Receipt Scanning** - OCR integration
-- [ ] **Recurring Expenses** - Automatic expense creation
-- [ ] **Categories Analytics** - Detailed category insights
+- [ ] **Receipt Scanning** - OCR integration for automatic expense entry
+- [ ] **Recurring Expenses** - Automatic expense creation for subscriptions
+- [ ] **Advanced Categories** - Nested categories and detailed insights
 - [ ] **Export Options** - PDF reports and Excel export
 - [ ] **Multi-currency** - Support for different currencies
 - [ ] **Shared Budgets** - Family/team expense tracking
+- [ ] **Expense Splitting** - Split expenses among multiple people
+- [ ] **Bank Integration** - Automatic transaction import
+- [ ] **AI Insights** - Smart spending analysis and recommendations
 
 ## 🙏 Acknowledgments
 
@@ -241,8 +266,22 @@ A: Ensure you have expense data and try refreshing the page.
 - **Netlify** - For seamless deployment and hosting
 - **Contributors** - Thanks to all who help improve this project
 
+## 📊 Project Stats
+
+- **⭐ Stars**: Give this project a star if you find it helpful!
+- **🍴 Forks**: Fork to contribute or customize for your needs
+- **🐛 Issues**: Report bugs or request features
+- **📈 Version**: 1.0.0 - Initial Release
+
 ---
 
 **⭐ Star this repository if you find it helpful!**
 
-Made with ❤️ by [MD SAMEER](https://github.com/yourusername)
+Made with ❤️ by [MD SAMEER](https://github.com/sdukesameer)
+
+## 🔗 Links
+
+- [Live Demo](https://myexpensetracker-sameer.netlify.app/)
+- [GitHub Repository](https://github.com/sdukesameer/myExpenseTracker)
+- [Supabase](https://supabase.com)
+- [Netlify](https://netlify.com)
