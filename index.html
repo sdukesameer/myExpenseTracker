@@ -67,6 +67,7 @@
             font-size: 1.5rem;
             transition: all 0.3s ease;
             backdrop-filter: blur(10px);
+            z-index: 10001;
         }
 
         .dark-mode {
@@ -132,15 +133,20 @@
 
         .form-group input, .form-group select {
             width: 100%;
-            padding: 0.875rem 2.5rem 0.875rem 1rem;
+            padding: 0.875rem 1rem;
             border: 2px solid #e5e7eb;
             border-radius: 12px;
             font-size: 1rem;
             transition: all 0.3s ease;
-            background: rgba(255,255,255,0.8) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") no-repeat right 0.75rem center/1.5em 1.5em;
+            background: rgba(255,255,255,0.8);
             -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
+        }
+
+        .form-group select {
+            padding-right: 2.5rem;
+            background: rgba(255,255,255,0.8) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") no-repeat right 0.75rem center/1.5em 1.5em;
         }
 
         .form-group input:focus, .form-group select:focus {
@@ -427,6 +433,7 @@
             align-items: center;
             gap: 0.5rem;
             margin-left: auto;
+            margin-right: 1rem;
         }
 
         .billed-toggle {
@@ -786,6 +793,7 @@
             backdrop-filter: blur(10px);
             text-decoration: none;
             color: white;
+            z-index: 10001;
         }
 
         .docs-toggle:hover {
@@ -799,6 +807,7 @@
                 padding: 1rem;
                 margin: 0.25rem;
                 border-radius: 16px;
+                margin-top: 80px;
             }
 
             .header h1 {
@@ -1219,6 +1228,7 @@
         let currentUser = null;
         let currentChart = null;
         let filteredExpenses = [];
+        let hasUnsavedBillingChanges = false;
         let monthlyBudget = parseFloat(localStorage.getItem('monthlyBudget') || '0');
 
         // Initialize Supabase - FIXED: Remove import.meta usage
@@ -1454,7 +1464,11 @@
             loadExpenses();
             updateStatistics();
             updateBudgetDisplay();
-            loadUserBudget();
+            loadUserBudget().then(() => {
+                const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
+                const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
+                if (budgetBtn) budgetBtn.textContent = budgetText;
+            });
 
             // Update budget button text after loading
             setTimeout(() => {
@@ -1767,6 +1781,10 @@
                 currentChart.destroy();
                 currentChart = null;
             }
+            // Reset billing toggle tracking
+            hasUnsavedBillingChanges = false;
+            editedExpenses.clear();
+            expenseEdits = {};
         }
 
         async function applyDateFilter() {
@@ -2002,7 +2020,7 @@
                                             ${expense.billed ? '<span class="billed-badge">BILLED</span>' : '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>'}
                                         </span>
                                         <span>${formatDate(expense.date)}</span>
-                                        <div class="edit-toggle-container" id="edit-container-${expense.id}">
+                                        <div class="edit-toggle-container" id="edit-container-${expense.id}" style="display: none;">
                                             <div class="billed-toggle ${expense.billed ? 'active' : ''}" onclick="toggleBillingStatus(${expense.id})"></div>
                                         </div>
                                     </div>
@@ -2020,7 +2038,7 @@
             if (filteredExpenses.length > 0) {
                 listContainer.innerHTML += `
                     <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
-                        <button class="save-changes-btn" onclick="saveAllChanges()">Save Changes</button>
+                        <button class="save-changes-btn" style="display: none;" onclick="saveAllChanges()">Save Changes</button>
                     </div>
                 `;
             }
@@ -2143,15 +2161,27 @@
             const isVisible = container.style.display === 'flex';
 
             if (isVisible) {
-                // Switch back to pencil icon and hide toggle
+                // When tick is clicked, update the billed-badge display based on current edits
+                const billedStatusSpan = container.closest('.expense-item').querySelector('.billed-status');
+                const currentEdit = expenseEdits[expenseId];
+
+                if (currentEdit) {
+                    // Update visual display based on edited state
+                    billedStatusSpan.innerHTML = currentEdit.billed ?
+                        '<span class="billed-badge">BILLED</span>' :
+                        '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>';
+                    billedStatusSpan.dataset.billed = currentEdit.billed;
+                }
+
+                // Hide toggle when tick is clicked
                 container.style.display = 'none';
+                // Switch back to pencil icon
                 icon.innerHTML = `
                     <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
                     <path d="M14.5 5.5 18.5 9.5"></path>
                 `;
                 icon.className = 'edit-icon';
-                editedExpenses.delete(expenseId);
-                delete expenseEdits[expenseId];
+                // Don't remove from editedExpenses if there are unsaved changes
             } else {
                 // Show toggle and switch to check/save icon
                 container.style.display = 'flex';
@@ -2160,9 +2190,11 @@
                 `;
                 icon.className = 'save-icon';
                 editedExpenses.add(expenseId);
-                // Initialize with current state
-                const billedStatus = container.parentNode.querySelector('.billed-status').dataset.billed === 'true';
-                expenseEdits[expenseId] = { billed: billedStatus };
+                // Initialize with current state if not already edited
+                if (!expenseEdits[expenseId]) {
+                    const billedStatus = container.parentNode.querySelector('.billed-status').dataset.billed === 'true';
+                    expenseEdits[expenseId] = { billed: billedStatus };
+                }
             }
 
             updateSaveButton();
@@ -2174,6 +2206,11 @@
 
             toggle.classList.toggle('active');
             expenseEdits[expenseId] = { billed: !isActive };
+            editedExpenses.add(expenseId);
+            hasUnsavedBillingChanges = true;
+
+            // Don't update the billed-badge here - only update the toggle visual state
+            updateSaveButton();
         }
 
         function saveExpenseEdit(expenseId) {
@@ -2203,6 +2240,7 @@
                 // Clear edit state
                 editedExpenses.clear();
                 expenseEdits = {};
+                hasUnsavedBillingChanges = false;
                 updateSaveButton();
 
                 // Refresh displays
