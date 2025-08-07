@@ -49,6 +49,7 @@
 
         .notification.show { transform: translateX(0); }
         .notification.success { background: linear-gradient(135deg, #10b981, #059669); }
+        .notification.warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .notification.error { background: linear-gradient(135deg, #ef4444, #dc2626); }
 
         .theme-toggle {
@@ -258,12 +259,7 @@
             border-bottom: 2px solid #f3f4f6;
             flex-wrap: wrap;
             gap: 1rem;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
+            position: relative;
         }
 
         .user-avatar {
@@ -278,6 +274,11 @@
             font-weight: bold;
             font-size: 1.2rem;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            cursor: pointer;
+        }
+
+        .user-info-text {
+            text-align: center;
         }
 
         .expense-form {
@@ -488,8 +489,8 @@
         }
 
         .edit-icon, .save-icon {
-            width: 24px;
-            height: 24px;
+            width: 30px;
+            height: 30px;
             cursor: pointer;
             padding: 2px;
             border-radius: 4px;
@@ -505,14 +506,14 @@
         }
 
         .save-icon {
-            color: #10b981;
-            stroke: #10b981;
+            color: #10b981 !important;
+            stroke: #10b981 !important;
         }
 
         .save-icon:hover {
-            background: rgba(16, 185, 129, 0.1);
-            color: #059669;
-            stroke: #059669;
+            background: rgba(16, 185, 129, 0.1) !important;
+            color: #059669 !important;
+            stroke: #059669 !important;
         }
 
         .dark-mode .edit-icon, .dark-mode .save-icon {
@@ -558,8 +559,8 @@
             color: white;
             border: none;
             border-radius: 8px;
-            width: 36px;
-            height: 36px;
+            width: 30px;
+            height: 30px;
             cursor: pointer;
             font-size: 1.1rem;
             transition: all 0.2s ease;
@@ -784,6 +785,51 @@
             transform: scale(1.05);
         }
 
+        .user-info {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-avatar {
+            cursor: pointer;
+            order: 2;
+        }
+
+        .user-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 180px;
+            padding: 0.5rem 0;
+        }
+
+        .user-menu-item {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #374151;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .user-menu-item:hover {
+            background: #f3f4f6;
+        }
+
         /* Improved mobile responsiveness */
         @media (max-width: 768px) {
             .container {
@@ -797,18 +843,24 @@
                 font-size: 2rem;
             }
 
+            .dashboard-header {
+                justify-content: space-between;
+                align-items: center;
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            .user-avatar {
+                flex-shrink: 0;
+            }
+
+            .user-info-text {
+                text-align: center;
+                flex-shrink: 0;
+            }
+
             .form-row.two {
                 grid-template-columns: 1fr;
-            }
-
-            .dashboard-header {
-                flex-direction: column;
-                text-align: center;
-                align-items: stretch;
-            }
-
-            .user-info {
-                justify-content: center;
             }
 
             .expenses-header {
@@ -974,19 +1026,44 @@
             </form>
         </div>
 
+        <!-- Password Reset Form -->
+        <div id="password-reset-form" class="auth-container hidden">
+            <div class="header">
+                <h1>🔐 Set New Password</h1>
+                <p>Enter your new password below</p>
+            </div>
+
+            <div id="reset-alert"></div>
+
+            <form id="password-reset" onsubmit="handlePasswordReset(event)">
+                <div class="form-group">
+                    <label for="reset-password">New Password:</label>
+                    <input type="password" id="reset-password" required minlength="6" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="reset-confirm-password">Confirm New Password:</label>
+                    <input type="password" id="reset-confirm-password" required minlength="6" autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn">Update Password</button>
+            </form>
+        </div>
+
         <!-- Dashboard -->
         <div id="dashboard" class="dashboard">
             <div class="dashboard-header">
-                <div class="user-info">
-                    <div class="user-avatar" id="user-avatar">U</div>
-                    <div>
-                        <h2 id="user-name">Welcome Back!</h2>
-                        <p id="user-email"></p>
-                    </div>
+                <div class="user-avatar" id="user-avatar" onclick="toggleUserMenu()">U</div>
+                <div class="user-info-text">
+                    <h2 id="user-name">Welcome Back!</h2>
+                    <p id="user-email"></p>
                 </div>
-                <div class="password-actions">
-                    <button class="btn btn-secondary" onclick="showChangePassword()">Change Password</button>
-                    <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                <!-- User menu dropdown -->
+                <div class="user-menu" id="user-menu" style="display: none;">
+                    <button class="user-menu-item" onclick="showChangePassword(); toggleUserMenu();">
+                        <span>🔐</span> Change Password
+                    </button>
+                    <button class="user-menu-item" onclick="logout(); toggleUserMenu();">
+                        <span>🚪</span> Logout
+                    </button>
                 </div>
             </div>
 
@@ -1060,9 +1137,15 @@
                         <input type="date" id="date" required onchange="updateDateDisplay()">
                         <div id="date-display" style="font-size: 0.9rem; color: #6b7280; margin-top: 0.5rem;"></div>
                     </div>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="billed">
-                        <label for="billed">This expense has been billed/reimbursed</label>
+                    <div class="form-group">
+                        <label style="margin-bottom: 1rem;">Billing Status:</label>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="font-size: 0.9rem; color: #374151; font-weight: 500;">Unbilled</span>
+                            <div class="billed-toggle" id="form-billed-toggle" onclick="toggleFormBilling()">
+                            </div>
+                            <span style="font-size: 0.9rem; color: #374151; font-weight: 500;">Billed</span>
+                            <input type="checkbox" id="billed" style="display: none;">
+                        </div>
                     </div>
                     <button type="submit" class="btn">Add Expense</button>
                 </form>
@@ -1260,10 +1343,11 @@
             document.getElementById('date').value = today;
             document.getElementById('end-date').value = today;
 
-            // Set start date to 30 days ago
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            document.getElementById('start-date').value = thirtyDaysAgo.toISOString().split('T')[0];
+            // Set start date to 1st day of current month in IST
+            const firstDayOfMonth = new Date();
+            firstDayOfMonth.setDate(1);
+            firstDayOfMonth.setHours(5, 30, 0, 0); // IST is UTC+5:30
+            document.getElementById('start-date').value = firstDayOfMonth.toISOString().split('T')[0];
 
             // Check for existing session
             const { data: { user } } = await supabase.auth.getUser();
@@ -1282,6 +1366,13 @@
 
             // Call updateDateDisplay when page loads
             updateDateDisplay();
+
+            // Check for password reset token in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            if (hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery') {
+                showPasswordResetForm();
+            }
         });
 
         // Authentication functions
@@ -1304,6 +1395,7 @@
             document.getElementById('signin-form').classList.add('hidden');
             document.getElementById('signup-form').classList.add('hidden');
             document.getElementById('forgot-password-form').classList.add('hidden');
+            document.getElementById('password-reset-form').classList.add('hidden');
             document.getElementById('dashboard').style.display = 'none';
         }
 
@@ -1386,6 +1478,35 @@
             }
         }
 
+        function showPasswordResetForm() {
+            hideAllForms();
+            document.getElementById('password-reset-form').classList.remove('hidden');
+        }
+
+        async function handlePasswordReset(e) {
+            e.preventDefault();
+            const newPassword = document.getElementById('reset-password').value;
+            const confirmPassword = document.getElementById('reset-confirm-password').value;
+
+            if (newPassword !== confirmPassword) {
+                showAlert('reset-alert', 'Passwords do not match.', 'error');
+                return;
+            }
+
+            try {
+                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                if (error) throw error;
+
+                showAlert('reset-alert', 'Password updated successfully!', 'success');
+                setTimeout(() => {
+                    window.location.hash = '';
+                    showSignIn();
+                }, 2000);
+            } catch (error) {
+                showAlert('reset-alert', error.message, 'error');
+            }
+        }
+
         async function handleChangePassword(e) {
             e.preventDefault();
             const newPassword = document.getElementById('new-password').value;
@@ -1457,6 +1578,20 @@
             }, 100);
         }
 
+        function toggleUserMenu() {
+            const menu = document.getElementById('user-menu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const avatar = document.getElementById('user-avatar');
+            const menu = document.getElementById('user-menu');
+            if (menu && !avatar.contains(event.target) && !menu.contains(event.target)) {
+                menu.style.display = 'none';
+            }
+        });
+
         async function loadUserTypes() {
             try {
                 const { data, error } = await supabase
@@ -1509,7 +1644,7 @@
                 date: document.getElementById('date').value,
                 type: type,
                 note: note,
-                billed: document.getElementById('billed').checked
+                billed: document.getElementById('form-billed-toggle').checked
             };
 
             try {
@@ -1521,6 +1656,8 @@
 
                 document.getElementById('expense-form').reset();
                 document.getElementById('date').value = new Date().toISOString().split('T')[0];
+                document.getElementById('form-billed-toggle').classList.remove('active');
+                updateDateDisplay();
                 loadExpenses();
                 updateStatistics();
                 showNotification('Expense added successfully!', 'success');
@@ -1535,7 +1672,7 @@
                     .from('expenses')
                     .select('*')
                     .order('date', { ascending: false })
-                    .limit(50); // Limit for performance
+                    .limit(5); // Show only last 5
 
                 if (error) throw error;
 
@@ -1557,7 +1694,6 @@
                                 <span>${formatDate(expense.date)}</span>
                             </div>
                         </div>
-                        <button class="delete-btn" onclick="deleteExpense(${expense.id})" title="Delete expense">×</button>
                     </div>
                 `).join('');
             } catch (error) {
@@ -1579,6 +1715,31 @@
                     updateStatistics();
                 } catch (error) {
                     alert('Failed to delete expense: ' + error.message);
+                }
+            }
+        }
+
+        async function deleteFilteredExpense(id) {
+            if (confirm('Are you sure you want to delete this expense?')) {
+                try {
+                    const { error } = await supabase
+                        .from('expenses')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    // Remove from filtered expenses
+                    filteredExpenses = filteredExpenses.filter(expense => expense.id !== id);
+
+                    // Refresh displays
+                    showExpenseList();
+                    updateChart(currentChart ? currentChart.config.type : 'pie');
+                    loadExpenses();
+                    updateStatistics();
+                    showNotification('Expense deleted successfully!', 'success');
+                } catch (error) {
+                    showNotification('Failed to delete expense: ' + error.message, 'error');
                 }
             }
         }
@@ -1706,8 +1867,19 @@
             }
 
             const remaining = monthlyBudget - monthlySpent;
+            const remainingElement = document.getElementById('budget-remaining');
 
-            document.getElementById('budget-remaining').textContent = `Remaining: ₹${remaining.toFixed(2)}`;
+            remainingElement.textContent = `Remaining: ₹${remaining.toFixed(2)}`;
+
+            // Change color if remaining is less than 100
+            if (remaining < 100) {
+                remainingElement.style.color = '#ef4444';
+                remainingElement.style.fontWeight = '600';
+            } else {
+                remainingElement.style.color = '';
+                remainingElement.style.fontWeight = '';
+            }
+
             document.getElementById('budget-total').textContent = `Budget: ₹${monthlyBudget.toFixed(2)}`;
 
             const progressBar = document.getElementById('budget-progress-bar');
@@ -1716,9 +1888,9 @@
             progressBar.style.width = `${Math.min(percentage, 100)}%`;
             progressBar.classList.toggle('over-budget', percentage > 100);
 
-            // Show warnings
+            // Show warnings with appropriate colors
             if (percentage > 90 && percentage <= 100) {
-                showNotification('Warning: You\'re approaching your budget limit!', 'info');
+                showNotification('Warning: You\'re approaching your budget limit!', 'warning');
             } else if (percentage > 100) {
                 showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
             }
@@ -1728,7 +1900,7 @@
             const dateInput = document.getElementById('date');
             const dateDisplay = document.getElementById('date-display');
 
-            if (dateInput.value) {
+            if (dateInput && dateInput.value) {
                 const date = new Date(dateInput.value + 'T00:00:00');
                 const options = {
                     weekday: 'long',
@@ -1743,7 +1915,11 @@
                             day % 10 === 2 && day !== 12 ? 'nd' :
                             day % 10 === 3 && day !== 13 ? 'rd' : 'th';
 
-                dateDisplay.textContent = formattedDate.replace(day.toString(), `${day}${suffix}`);
+                if (dateDisplay) {
+                    dateDisplay.textContent = formattedDate.replace(day.toString(), `${day}${suffix}`);
+                }
+            } else if (dateDisplay) {
+                dateDisplay.textContent = '';
             }
         }
 
@@ -1861,14 +2037,29 @@
                                 text: 'Expenses by Type'
                             },
                             legend: {
-                                position: 'bottom'
+                                position: 'bottom',
+                                display: chartType !== 'bar'
                             },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
                                         const value = context.parsed || context.parsed.y || context.parsed;
-                                        return context.label + ': ₹' + (typeof value === 'number' ? value.toFixed(2) : value);
+                                        const actualValue = typeof value === 'object' ? value.y || value : value;
+                                        return context.label + ': ₹' + actualValue.toFixed(2);
                                     }
+                                }
+                            },
+                            datalabels: {
+                                display: chartType === 'bar',
+                                anchor: 'end',
+                                align: 'top',
+                                formatter: function(value) {
+                                    return '₹' + value.toFixed(0);
+                                },
+                                color: '#374151',
+                                font: {
+                                    weight: 'bold',
+                                    size: 12
                                 }
                             }
                         }
@@ -1877,8 +2068,18 @@
 
                 if (chartType === 'bar') {
                     chartConfig.options.scales = {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Expense Types'
+                            }
+                        },
                         y: {
                             beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Amount (₹)'
+                            },
                             ticks: {
                                 callback: function(value) {
                                     return '₹' + value.toFixed(0);
@@ -1907,7 +2108,7 @@
             return {
                 labels: Object.keys(typeData),
                 datasets: [{
-                    label: 'Amount (₹)',
+                    label: 'Amount',
                     data: Object.values(typeData),
                     backgroundColor: colors.slice(0, Object.keys(typeData).length),
                     borderWidth: 2,
@@ -1991,25 +2192,35 @@
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
                         ${filteredExpenses.map(expense => `
                             <div class="expense-item" style="margin: 0; border-radius: 0;" data-id="${expense.id}">
-                                <div class="expense-details">
-                                    <div class="expense-amount">₹${parseFloat(expense.amount).toFixed(2)}</div>
-                                    <div class="expense-note">${expense.note || 'No description'}</div>
-                                    <div class="expense-meta">
-                                        <span class="expense-type">${expense.type}</span>
-                                        <span class="billed-status" data-billed="${expense.billed}">
-                                            ${expense.billed ? '<span class="billed-badge">BILLED</span>' : '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>'}
-                                        </span>
-                                        <span>${formatDate(expense.date)}</span>
-                                        <div class="edit-toggle-container" id="edit-container-${expense.id}" style="display: none;">
-                                            <div class="billed-toggle ${expense.billed ? 'active' : ''}" onclick="toggleBillingStatus(${expense.id})"></div>
-                                        </div>
-                                    </div>
+                            <div class="expense-details">
+                                <div class="expense-amount">₹${parseFloat(expense.amount).toFixed(2)}</div>
+                                <div class="expense-note">${expense.note || 'No description'}</div>
+                                <div class="expense-meta">
+                                    <span class="expense-type">${expense.type}</span>
+                                    <span class="billed-status" data-billed="${expense.billed}">
+                                        ${expense.billed ? '<span class="billed-badge">BILLED</span>' : '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>'}
+                                    </span>
+                                    <span>${formatDate(expense.date)}</span>
                                 </div>
-                                <svg class="edit-icon" id="edit-icon-${expense.id}" onclick="toggleEditMode(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
-                                    <path d="M14.5 5.5 18.5 9.5"></path>
-                                </svg>
                             </div>
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <svg class="edit-icon" id="edit-icon-${expense.id}" onclick="toggleEditMode(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="background: #667eea; color: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
+                                        <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
+                                        <path d="M14.5 5.5 18.5 9.5"></path>
+                                    </svg>
+                                    <svg class="delete-btn" id="delete-btn-${expense.id}" onclick="deleteFilteredExpense(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" title="Delete expense" style="background: #ef4444; color: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
+                                        <polyline points="3,6 5,6 21,6"></polyline>
+                                        <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                    </svg>
+                                </div>
+                                <div class="edit-toggle-container" id="edit-container-${expense.id}" style="display: none;">
+                                    <div class="billed-toggle ${expense.billed ? 'active' : ''}" onclick="toggleBillingStatus(${expense.id})"></div>
+                                </div>
+                            </div>
+                        </div>
                         `).join('')}
                     </div>
                 </div>
@@ -2138,6 +2349,7 @@
         function toggleEditMode(expenseId) {
             const container = document.getElementById(`edit-container-${expenseId}`);
             const icon = document.getElementById(`edit-icon-${expenseId}`);
+            const deleteBtn = document.getElementById(`delete-btn-${expenseId}`);
             const isVisible = container.style.display === 'flex';
             const originalBilledStatus = container.closest('.expense-item').querySelector('.billed-status').dataset.billed === 'true';
 
@@ -2154,21 +2366,33 @@
                     billedStatusSpan.dataset.billed = currentEdit.billed;
                 }
 
-                // Hide toggle when tick is clicked
+                // Hide toggle when tick is clicked and show delete button
                 container.style.display = 'none';
+                deleteBtn.style.display = 'block';
                 // Switch back to pencil icon
                 icon.innerHTML = `
                     <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
                     <path d="M14.5 5.5 18.5 9.5"></path>
                 `;
                 icon.className = 'edit-icon';
+                icon.style.background = '#667eea';
+                icon.style.color = 'white';
+                icon.style.stroke = 'white';
+                icon.style.borderRadius = '8px';
+                icon.style.padding = '6px';
             } else {
-                // Show toggle and switch to check/save icon
+                // Show toggle and hide delete button, switch to check/save icon
                 container.style.display = 'flex';
+                deleteBtn.style.display = 'none';
                 icon.innerHTML = `
                     <polyline points="20,6 9,17 4,12"></polyline>
                 `;
                 icon.className = 'save-icon';
+                icon.style.background = '#10b981';
+                icon.style.color = 'white';
+                icon.style.stroke = 'white';
+                icon.style.borderRadius = '8px';
+                icon.style.padding = '6px';
 
                 // Initialize with current state if not already tracked
                 if (!expenseEdits[expenseId]) {
@@ -2319,6 +2543,16 @@
             if (event.target === document.getElementById('delete-type-modal')) {
                 closeDeleteTypeModal();
             }
+        }
+
+        function toggleFormBilling() {
+            const toggle = document.getElementById('form-billed-toggle');
+            const isActive = toggle.classList.contains('active');
+            toggle.classList.toggle('active');
+
+            // Update hidden checkbox for form submission
+            const checkbox = document.getElementById('billed');
+            checkbox.checked = !isActive;
         }
     </script>
 </body>
