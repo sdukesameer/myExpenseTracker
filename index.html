@@ -968,7 +968,7 @@
                 </div>
                 <div class="form-group">
                     <label for="signin-password">Password:</label>
-                    <input type="password" id="signin-password" required autocomplete="current-password">
+                    <input type="password" id="current-password" autocomplete="current-password">
                 </div>
                 <button type="submit" class="btn">Sign In</button>
                 <button type="button" class="link-btn" onclick="showForgotPassword()">Forgot Password?</button>
@@ -1536,8 +1536,21 @@
             document.getElementById('new-password').focus();
         }
 
-        function showForcedPasswordChange() {
+        async function showForcedPasswordChange() {
             hideAllForms();
+
+            // Mark user as requiring password reset in database
+            try {
+                await supabase
+                    .from('user_profiles')
+                    .upsert([{
+                        user_id: currentUser.id,
+                        requires_password_reset: true
+                    }], { onConflict: 'user_id' });
+            } catch (error) {
+                console.error('Failed to update password reset flag:', error);
+            }
+
             document.getElementById('change-password-modal').style.display = 'block';
             document.getElementById('current-password').parentElement.style.display = 'none';
 
@@ -1584,6 +1597,16 @@
             try {
                 const { error } = await supabase.auth.updateUser({ password: newPassword });
                 if (error) throw error;
+
+                // Clear password reset flag
+                if (isPasswordResetFlow) {
+                    await supabase
+                        .from('user_profiles')
+                        .upsert([{
+                            user_id: currentUser.id,
+                            requires_password_reset: false
+                        }], { onConflict: 'user_id' });
+                }
 
                 showAlert('change-password-alert', 'Password changed successfully!', 'success');
 
@@ -1640,11 +1663,27 @@
         }
 
         // Dashboard functions
-        function showDashboard() {
+        async function showDashboard() {
+            // Check if user requires password reset
+            try {
+                const { data } = await supabase
+                    .from('user_profiles')
+                    .select('requires_password_reset')
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                if (data?.requires_password_reset) {
+                    isPasswordResetFlow = true;
+                    showForcedPasswordChange();
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to check password reset status:', error);
+            }
+
             hideAllForms();
             document.getElementById('dashboard').style.display = 'block';
 
-            // Update user info - prioritize display name from metadata
             const displayName = currentUser.user_metadata?.display_name ||
                             currentUser.user_metadata?.name ||
                             currentUser.user_metadata?.full_name ||
@@ -1654,7 +1693,6 @@
             document.getElementById('user-email').textContent = currentUser.email;
             document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
-            // Load user types and expenses
             loadUserTypes();
             loadExpenses();
             updateStatistics();
@@ -1665,7 +1703,6 @@
                 if (budgetBtn) budgetBtn.textContent = budgetText;
             });
 
-            // Update budget button text after loading
             setTimeout(() => {
                 const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
                 document.querySelector('.budget-tracker h3 + .btn').textContent = budgetText;
