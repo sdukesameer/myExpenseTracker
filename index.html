@@ -1616,11 +1616,6 @@
             }
         }
 
-        function showPasswordResetForm() {
-            hideAllForms();
-            document.getElementById('password-reset-form').classList.remove('hidden');
-        }
-
         async function handlePasswordReset(e) {
             e.preventDefault();
             const newPassword = document.getElementById('reset-password').value;
@@ -1638,32 +1633,10 @@
                 showAlert('reset-alert', 'Password updated successfully!', 'success');
                 setTimeout(() => {
                     window.location.hash = '';
-                    showChangePasswordAfterReset();
                 }, 2000);
             } catch (error) {
                 showAlert('reset-alert', error.message, 'error');
             }
-        }
-
-        function showChangePasswordAfterReset() {
-            supabase.auth.getUser().then(({ data: { user } }) => {
-                if (user) {
-                    currentUser = user;
-                    showDashboard();
-                    showChangePasswordNoCurrentPassword();
-                } else {
-                    showSignIn();
-                }
-            });
-        }
-
-        function showChangePasswordNoCurrentPassword() {
-            document.getElementById('change-password-modal').style.display = 'block';
-            document.getElementById('current-password').parentElement.style.display = 'none';
-            // Disable close button and outside click
-            document.querySelector('.close-modal').style.display = 'none';
-            document.getElementById('change-password-modal').onclick = null;
-            document.getElementById('new-password').focus();
         }
 
         async function showForcedPasswordChange() {
@@ -1770,16 +1743,11 @@
             }
         }
 
-        function showChangePassword() {
-            document.getElementById('change-password-modal').style.display = 'block';
-            document.getElementById('current-password').focus();
-        }
-
         // Replace the existing logout function
         async function logout() {
             try {
                 // Sign out with global scope to terminate all sessions
-                const { error } = await supabase.auth.signOut({ scope: 'global' });
+                await supabase.auth.signOut();
 
                 if (error) {
                     console.error('Logout error:', error);
@@ -1840,11 +1808,6 @@
             loadExpenses();
             updateStatistics();
             updateBudgetDisplay();
-            loadUserBudget().then(() => {
-                const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
-                const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
-                if (budgetBtn) budgetBtn.textContent = budgetText;
-            });
 
             setTimeout(() => {
                 const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
@@ -2696,11 +2659,6 @@
             updateSaveButton();
         }
 
-        function saveExpenseEdit(expenseId) {
-            // Individual save - remove from edit mode
-            toggleEditMode(expenseId);
-        }
-
         function updateSaveButton() {
             const saveBtn = document.querySelector('.expense-list-container .save-changes-btn');
             if (saveBtn) {
@@ -2900,9 +2858,12 @@
                         `Email change verification sent to your current email: ${currentEmail}. Please check your email and click the verification link to complete the change.`,
                         'success');
 
-                    setTimeout(() => {
+                    setTimeout(async () => {
+                        await supabase.auth.signOut();
+                        currentUser = null;
                         closeEditProfileModal();
-                        showNotification('Check your current email for the verification link', 'info', 5000);
+                        showSignIn();
+                        showNotification('Signed out. Check your email for verification link', 'info', 5000);
                     }, 2000);
 
                     return;
@@ -2945,7 +2906,7 @@
                     localStorage.removeItem('pendingEmailChange');
 
                     // Sign out from all sessions to force re-login with new email
-                    await supabase.auth.signOut({ scope: 'global' });
+                    await supabase.auth.signOut();
 
                     // Clear all auth-related storage
                     localStorage.removeItem('supabase.auth.token');
@@ -2973,82 +2934,6 @@
                     window.history.replaceState({}, document.title, window.location.pathname);
                     showSignIn();
                 }
-            }
-        }
-
-        function showEmailVerificationStep() {
-            const alertContainer = document.getElementById('edit-profile-alert');
-
-            // Add OTP verification form
-            alertContainer.innerHTML += `
-                <div id="email-verification-step" style="margin-top: 1rem; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;">
-                    <label for="email-otp-code" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Verification Code:</label>
-                    <input type="text" id="email-otp-code" placeholder="Enter 6-digit code" maxlength="6" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 0.5rem;">
-                    <button type="button" onclick="verifyEmailChangeOTP()" class="btn" style="width: 100%; margin: 0;">Verify & Change Email</button>
-                </div>
-            `;
-
-            document.getElementById('email-otp-code').focus();
-        }
-
-        async function verifyEmailChangeOTP() {
-            const otpCode = document.getElementById('email-otp-code').value.trim();
-            const pendingChange = JSON.parse(localStorage.getItem('pendingEmailChange') || '{}');
-
-            if (!otpCode || otpCode.length !== 6) {
-                showAlert('edit-profile-alert', 'Please enter a valid 6-digit code.', 'error');
-                return;
-            }
-
-            if (!pendingChange.newEmail) {
-                showAlert('edit-profile-alert', 'No pending email change found.', 'error');
-                return;
-            }
-
-            try {
-                // Verify the OTP
-                const { error: verifyError } = await supabase.auth.verifyOtp({
-                    email: pendingChange.oldEmail,
-                    token: otpCode,
-                    type: 'email'
-                });
-
-                if (verifyError) throw verifyError;
-
-                // Logout all sessions before changing email
-                await supabase.auth.signOut({ scope: 'global' });
-
-                // Clear auth-related storage
-                localStorage.removeItem('supabase.auth.token');
-                const projectId = supabaseUrl.split('//')[1]?.split('.')[0];
-                if (projectId) {
-                    localStorage.removeItem(`sb-${projectId}-auth-token`);
-                }
-
-                // Now update the email
-                const { error: updateError } = await supabase.auth.updateUser({
-                    email: pendingChange.newEmail
-                });
-
-                if (updateError) throw updateError;
-
-                // Clear pending change
-                localStorage.removeItem('pendingEmailChange');
-
-                showAlert('edit-profile-alert',
-                    `Email changed successfully! Please sign in with your new email: ${pendingChange.newEmail}`,
-                    'success');
-
-                setTimeout(() => {
-                    closeEditProfileModal();
-                    currentUser = null;
-                    isPasswordResetFlow = false;
-                    showSignIn();
-                    showNotification('Email updated successfully. Please sign in with your new email.', 'success');
-                }, 3000);
-
-            } catch (error) {
-                showAlert('edit-profile-alert', `Verification failed: ${error.message}`, 'error');
             }
         }
 
