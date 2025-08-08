@@ -19,6 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Expense Tracker">
     <!-- End Favicon Setup -->
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -36,6 +37,37 @@
             align-items: center;
             justify-content: center;
             padding: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.loaded {
+            opacity: 1;
+        }
+
+        .loading-spinner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            color: white;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-left: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .welcome-section {
@@ -54,14 +86,16 @@
             border-radius: 12px;
             color: white;
             font-weight: 500;
-            z-index: 10000;
+            z-index: 10002;
             transform: translateX(400px);
             transition: transform 0.3s ease;
             max-width: 350px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
         }
 
         .notification.show { transform: translateX(0); }
         .notification.success { background: linear-gradient(135deg, #10b981, #059669); }
+        .notification.info { background: linear-gradient(135deg, #10b981, #059669); }
         .notification.warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
         .notification.error { background: linear-gradient(135deg, #ef4444, #dc2626); }
 
@@ -242,6 +276,16 @@
             margin: 0;
             border-radius: 8px;
             min-height: auto;
+        }
+
+        .btn-profile-save {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-profile-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
         }
 
         .link-btn {
@@ -960,6 +1004,12 @@
         <span>📚</span>
     </a>
 
+    <!-- Loading Spinner -->
+        <div id="loading-spinner" class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading your account...</p>
+        </div>
+
     <!-- Notification Container -->
     <div id="notification-container"></div>
 
@@ -1071,6 +1121,9 @@
                 </div>
                 <!-- User menu dropdown -->
                 <div class="user-menu" id="user-menu" style="display: none;">
+                    <button class="user-menu-item" onclick="showEditProfile(); toggleUserMenu();">
+                        <span>👤</span> Edit Profile
+                    </button>
                     <button class="user-menu-item" onclick="showChangePassword(); toggleUserMenu();">
                         <span>🔐</span> Change Password
                     </button>
@@ -1193,6 +1246,26 @@
                     <input type="password" id="confirm-new-password" required minlength="6" autocomplete="new-password">
                 </div>
                 <button type="submit" class="btn">Change Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div id="edit-profile-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeEditProfileModal()">&times;</button>
+            <h3 style="margin-bottom: 1.5rem; color: #374151;">Edit Profile</h3>
+            <div id="edit-profile-alert"></div>
+            <form id="edit-profile-form">
+                <div class="form-group">
+                    <label for="profile-name">Full Name:</label>
+                    <input type="text" id="profile-name" required autocomplete="name">
+                </div>
+                <div class="form-group">
+                    <label for="profile-email">Email:</label>
+                    <input type="email" id="profile-email" required autocomplete="email">
+                </div>
+                <button type="submit" class="btn btn-profile-save" id="save-profile-btn" style="display: none;">Save Changes</button>
             </form>
         </div>
     </div>
@@ -1342,6 +1415,9 @@
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', async function() {
+            // Show loading spinner
+            document.getElementById('loading-spinner').style.display = 'block';
+
             if (isDarkMode) {
                 document.body.classList.add('dark-mode');
                 document.getElementById('theme-icon').textContent = '☀️';
@@ -1370,13 +1446,37 @@
                     currentUser = null;
                     isPasswordResetFlow = false;
                     showSignIn();
+                } else if (event === 'USER_UPDATED' && session?.user) {
+                    // Handle email verification completion only if not in password reset flow
+                    currentUser = session.user;
+                    if (!isPasswordResetFlow) {
+                        showNotification('Email updated successfully!', 'success');
+                        // Update display if user is on dashboard
+                        if (document.getElementById('dashboard').style.display !== 'none') {
+                            showDashboard();
+                        }
+                    }
                 }
+                // Hide loading spinner and show content
+                document.getElementById('loading-spinner').style.display = 'none';
+                document.body.classList.add('loaded');
             });
 
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                currentUser = user;
-                showDashboard();
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    currentUser = user;
+                    showDashboard();
+                } else {
+                    showSignIn();
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                showSignIn();
+            } finally {
+                // Hide loading spinner and show content
+                document.getElementById('loading-spinner').style.display = 'none';
+                document.body.classList.add('loaded');
             }
 
             document.getElementById('signin').addEventListener('submit', handleSignIn);
@@ -1385,6 +1485,7 @@
             document.getElementById('expense-form').addEventListener('submit', handleAddExpense);
             document.getElementById('add-type-form').addEventListener('submit', handleAddType);
             document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
+            document.getElementById('edit-profile-form').addEventListener('submit', handleEditProfile);
 
             updateDateDisplay();
         });
@@ -2649,12 +2750,132 @@
             }
         });
 
+        // Edit Profile Functions
+        function showEditProfile() {
+            // Reset modal content completely
+            document.getElementById('edit-profile-alert').innerHTML = '';
+            document.getElementById('save-profile-btn').style.display = 'none';
+
+            document.getElementById('edit-profile-modal').style.display = 'block';
+
+            // Populate current values fresh
+            const displayName = currentUser.user_metadata?.display_name ||
+                            currentUser.user_metadata?.name ||
+                            currentUser.user_metadata?.full_name ||
+                            '';
+
+            document.getElementById('profile-name').value = displayName;
+            document.getElementById('profile-email').value = currentUser.email;
+
+            // Remove any existing event listeners
+            const nameInput = document.getElementById('profile-name');
+            const emailInput = document.getElementById('profile-email');
+
+            nameInput.oninput = null;
+            emailInput.oninput = null;
+
+            // Add fresh event listeners
+            nameInput.oninput = emailInput.oninput = checkProfileChanges;
+
+            nameInput.focus();
+        }
+
+        function closeEditProfileModal() {
+            document.getElementById('edit-profile-modal').style.display = 'none';
+            document.getElementById('edit-profile-form').reset();
+            document.getElementById('edit-profile-alert').innerHTML = '';
+            document.getElementById('save-profile-btn').style.display = 'none';
+        }
+
+        function checkProfileChanges() {
+            const currentName = currentUser.user_metadata?.display_name ||
+                            currentUser.user_metadata?.name ||
+                            currentUser.user_metadata?.full_name ||
+                            '';
+
+            const newName = document.getElementById('profile-name').value.trim();
+            const newEmail = document.getElementById('profile-email').value.trim();
+            const currentEmail = currentUser.email;
+
+            const nameChanged = newName !== currentName;
+            const emailChanged = newEmail !== currentEmail;
+
+            const saveBtn = document.getElementById('save-profile-btn');
+            saveBtn.style.display = (nameChanged || emailChanged) ? 'block' : 'none';
+        }
+
+        async function handleEditProfile(e) {
+            e.preventDefault();
+
+            const currentName = currentUser.user_metadata?.display_name ||
+                            currentUser.user_metadata?.name ||
+                            currentUser.user_metadata?.full_name ||
+                            '';
+
+            const newName = document.getElementById('profile-name').value.trim();
+            const newEmail = document.getElementById('profile-email').value.trim();
+            const currentEmail = currentUser.email;
+
+            const nameChanged = newName !== currentName;
+            const emailChanged = newEmail !== currentEmail;
+
+            if (!nameChanged && !emailChanged) {
+                closeEditProfileModal();
+                return;
+            }
+
+            try {
+                let updateData = {};
+
+                if (nameChanged) {
+                    updateData.data = {
+                        display_name: newName,
+                        name: newName,
+                        full_name: newName
+                    };
+                }
+
+                if (emailChanged) {
+                    updateData.email = newEmail;
+                }
+
+                const { error } = await supabase.auth.updateUser(updateData);
+
+                if (error) throw error;
+
+                let message = '';
+                if (nameChanged && emailChanged) {
+                    message = 'Name updated successfully! Please verify your new email address.';
+                } else if (nameChanged) {
+                    message = 'Name updated successfully!';
+                    // Update display immediately for name changes
+                    document.getElementById('user-name').textContent = `Welcome, ${newName}!`;
+                    document.getElementById('user-avatar').textContent = newName.charAt(0).toUpperCase();
+                } else if (emailChanged) {
+                    message = 'Please check your new email address for verification.';
+                }
+
+                showAlert('edit-profile-alert', message, 'success');
+
+                setTimeout(() => {
+                    closeEditProfileModal();
+                    if (nameChanged && !emailChanged) {
+                        showNotification('Profile updated successfully!', 'success');
+                    }
+                }, 2000);
+
+            } catch (error) {
+                showAlert('edit-profile-alert', error.message, 'error');
+            }
+        }
+
         // Close modal when clicking outside
         window.onclick = function(event) {
             const addTypeModal = document.getElementById('add-type-modal');
             const visualizationModal = document.getElementById('visualization-modal');
             const changePasswordModal = document.getElementById('change-password-modal');
             const budgetModal = document.getElementById('budget-modal');
+            const editProfileModal = document.getElementById('edit-profile-modal');
 
             if (event.target === addTypeModal) {
                 closeAddTypeModal();
@@ -2667,6 +2888,9 @@
             }
             if (event.target === budgetModal) {
                 closeBudgetModal();
+            }
+            if (event.target === editProfileModal) {
+                closeEditProfileModal();
             }
             if (event.target === document.getElementById('delete-type-modal')) {
                 closeDeleteTypeModal();
