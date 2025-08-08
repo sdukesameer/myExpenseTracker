@@ -1447,32 +1447,35 @@
             handleEmailChangeConfirmation();
 
             supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'PASSWORD_RECOVERY') {
-                isPasswordResetFlow = true;
-                currentUser = session?.user || null;
-                showForcedPasswordChange();
-            } else if (event === 'SIGNED_IN' && session?.user) {
-                if (!isPasswordResetFlow) {
-                    currentUser = session.user;
-                    showDashboard();
-                }
-            } else if (event === 'SIGNED_OUT') {
-                currentUser = null;
-                isPasswordResetFlow = false;
-                showSignIn();
-            } else if (event === 'USER_UPDATED' && session?.user) {
-                // Only handle profile updates, not email changes
-                if (!window.location.search.includes('type=email_change')) {
-                    currentUser = session.user;
-                    if (!isPasswordResetFlow && document.getElementById('dashboard').style.display !== 'none') {
+                if (event === 'PASSWORD_RECOVERY') {
+                    // Ensure clean state for password recovery
+                    currentUser = null;
+                    isPasswordResetFlow = true;
+                    if (session?.user) {
+                        currentUser = session.user;
+                    }
+                    showForcedPasswordChange();
+                } else if (event === 'SIGNED_IN' && session?.user) {
+                    if (!isPasswordResetFlow) {
+                        currentUser = session.user;
                         showDashboard();
                     }
+                } else if (event === 'SIGNED_OUT') {
+                    currentUser = null;
+                    isPasswordResetFlow = false;
+                    showSignIn();
+                } else if (event === 'USER_UPDATED' && session?.user) {
+                    if (!window.location.search.includes('type=email_change')) {
+                        currentUser = session.user;
+                        if (!isPasswordResetFlow && document.getElementById('dashboard').style.display !== 'none') {
+                            showDashboard();
+                        }
+                    }
                 }
-            }
-            // Hide loading spinner and show content
-            document.getElementById('loading-spinner').style.display = 'none';
-            document.body.classList.add('loaded');
-        });
+
+                document.getElementById('loading-spinner').style.display = 'none';
+                document.body.classList.add('loaded');
+            });
 
             try {
                 const { data: { user } } = await supabase.auth.getUser();
@@ -1513,7 +1516,15 @@
             document.getElementById('signup-form').classList.remove('hidden');
         }
 
-        function showForgotPassword() {
+        async function showForgotPassword() {
+            // Logout current session before showing forgot password form
+            try {
+                await supabase.auth.signOut();
+                currentUser = null;
+            } catch (error) {
+                console.error('Error during logout:', error);
+            }
+
             hideAllForms();
             document.getElementById('forgot-password-form').classList.remove('hidden');
         }
@@ -1641,6 +1652,12 @@
 
         async function showForcedPasswordChange() {
             hideAllForms();
+
+            // Ensure we have a valid user for password recovery
+            if (!currentUser) {
+                showSignIn();
+                return;
+            }
 
             try {
                 await supabase
@@ -1808,6 +1825,12 @@
             loadExpenses();
             updateStatistics();
             updateBudgetDisplay();
+
+            loadUserBudget().then(() => {
+                const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
+                const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
+                if (budgetBtn) budgetBtn.textContent = budgetText;
+            });
 
             setTimeout(() => {
                 const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
