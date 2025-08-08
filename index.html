@@ -1397,6 +1397,17 @@
             localStorage.setItem('darkMode', isDarkMode);
         }
 
+        // Add this function after toggleTheme() function
+        function handleSecureEmailLink() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const actualLink = urlParams.get('link');
+
+            if (actualLink && window.location.pathname === '/secure-email-link') {
+                // Redirect to the actual Supabase link
+                window.location.href = actualLink;
+            }
+        }
+
         // FIXED: Notification system properly scoped
         function showNotification(message, type = 'info', duration = 3000) {
             const container = document.getElementById('notification-container');
@@ -1432,35 +1443,36 @@
             firstDayOfMonth.setHours(5, 30, 0, 0);
             document.getElementById('start-date').value = firstDayOfMonth.toISOString().split('T')[0];
 
+            handleSecureEmailLink();
+            handleEmailChangeConfirmation();
+
             supabase.auth.onAuthStateChange((event, session) => {
-                if (event === 'PASSWORD_RECOVERY') {
-                    isPasswordResetFlow = true;
-                    currentUser = session?.user || null;
-                    showForcedPasswordChange();
-                } else if (event === 'SIGNED_IN' && session?.user) {
-                    if (!isPasswordResetFlow) {
-                        currentUser = session.user;
+            if (event === 'PASSWORD_RECOVERY') {
+                isPasswordResetFlow = true;
+                currentUser = session?.user || null;
+                showForcedPasswordChange();
+            } else if (event === 'SIGNED_IN' && session?.user) {
+                if (!isPasswordResetFlow) {
+                    currentUser = session.user;
+                    showDashboard();
+                }
+            } else if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                isPasswordResetFlow = false;
+                showSignIn();
+            } else if (event === 'USER_UPDATED' && session?.user) {
+                // Only handle profile updates, not email changes
+                if (!window.location.search.includes('type=email_change')) {
+                    currentUser = session.user;
+                    if (!isPasswordResetFlow && document.getElementById('dashboard').style.display !== 'none') {
                         showDashboard();
                     }
-                } else if (event === 'SIGNED_OUT') {
-                    currentUser = null;
-                    isPasswordResetFlow = false;
-                    showSignIn();
-                } else if (event === 'USER_UPDATED' && session?.user) {
-                    // Handle email verification completion only if not in password reset flow
-                    currentUser = session.user;
-                    if (!isPasswordResetFlow) {
-                        showNotification('Email updated successfully!', 'success');
-                        // Update display if user is on dashboard
-                        if (document.getElementById('dashboard').style.display !== 'none') {
-                            showDashboard();
-                        }
-                    }
                 }
-                // Hide loading spinner and show content
-                document.getElementById('loading-spinner').style.display = 'none';
-                document.body.classList.add('loaded');
-            });
+            }
+            // Hide loading spinner and show content
+            document.getElementById('loading-spinner').style.display = 'none';
+            document.body.classList.add('loaded');
+        });
 
             try {
                 const { data: { user } } = await supabase.auth.getUser();
@@ -1763,11 +1775,34 @@
             document.getElementById('current-password').focus();
         }
 
+        // Replace the existing logout function
         async function logout() {
-            await supabase.auth.signOut();
-            currentUser = null;
-            isPasswordResetFlow = false;
-            showSignIn();
+            try {
+                // Sign out with global scope to terminate all sessions
+                const { error } = await supabase.auth.signOut({ scope: 'global' });
+
+                if (error) {
+                    console.error('Logout error:', error);
+                }
+
+                // Clear any local storage related to auth
+                localStorage.removeItem('supabase.auth.token');
+
+                // Clear the project-specific auth token
+                const projectId = supabaseUrl.split('//')[1]?.split('.')[0];
+                if (projectId) {
+                    localStorage.removeItem(`sb-${projectId}-auth-token`);
+                }
+
+                currentUser = null;
+                isPasswordResetFlow = false;
+                showSignIn();
+                showNotification('Signed out from all devices', 'success');
+            } catch (error) {
+                console.error('Error during logout:', error);
+                currentUser = null;
+                showSignIn();
+            }
         }
 
         // Dashboard functions
@@ -2808,9 +2843,9 @@
             e.preventDefault();
 
             const currentName = currentUser.user_metadata?.display_name ||
-                            currentUser.user_metadata?.name ||
-                            currentUser.user_metadata?.full_name ||
-                            '';
+                                currentUser.user_metadata?.name ||
+                                currentUser.user_metadata?.full_name ||
+                                '';
 
             const newName = document.getElementById('profile-name').value.trim();
             const newEmail = document.getElementById('profile-email').value.trim();
@@ -2825,47 +2860,195 @@
             }
 
             try {
-                let updateData = {};
-
+                // Handle name change
                 if (nameChanged) {
-                    updateData.data = {
-                        display_name: newName,
-                        name: newName,
-                        full_name: newName
-                    };
-                }
+                    const { error } = await supabase.auth.updateUser({
+                        data: {
+                            display_name: newName,
+                            name: newName,
+                            full_name: newName
+                        }
+                    });
 
-                if (emailChanged) {
-                    updateData.email = newEmail;
-                }
+                    if (error) throw error;
 
-                const { error } = await supabase.auth.updateUser(updateData);
-
-                if (error) throw error;
-
-                let message = '';
-                if (nameChanged && emailChanged) {
-                    message = 'Name updated successfully! Please verify your new email address.';
-                } else if (nameChanged) {
-                    message = 'Name updated successfully!';
-                    // Update display immediately for name changes
+                    // Update display immediately
                     document.getElementById('user-name').textContent = `Welcome, ${newName}!`;
                     document.getElementById('user-avatar').textContent = newName.charAt(0).toUpperCase();
-                } else if (emailChanged) {
-                    message = 'Please check your new email address for verification.';
                 }
 
-                showAlert('edit-profile-alert', message, 'success');
+                // Handle email change - Supabase will send verification to OLD email when "Secure email change" is ON
+                if (emailChanged) {
+                    // Store pending change for reference
+                    localStorage.setItem('pendingEmailChange', JSON.stringify({
+                        oldEmail: currentEmail,
+                        newEmail: newEmail,
+                        timestamp: Date.now()
+                    }));
 
-                setTimeout(() => {
-                    closeEditProfileModal();
-                    if (nameChanged && !emailChanged) {
+                    // Use Supabase's built-in email change with redirect to current domain
+                    const { error } = await supabase.auth.updateUser(
+                        { email: newEmail },
+                        {
+                            emailRedirectTo: `${window.location.origin}?type=email_change`
+                        }
+                    );
+
+                    if (error) throw error;
+
+                    showAlert('edit-profile-alert',
+                        `Email change verification sent to your current email: ${currentEmail}. Please check your email and click the verification link to complete the change.`,
+                        'success');
+
+                    setTimeout(() => {
+                        closeEditProfileModal();
+                        showNotification('Check your current email for the verification link', 'info', 5000);
+                    }, 2000);
+
+                    return;
+                }
+
+                // If only name changed
+                if (nameChanged && !emailChanged) {
+                    showAlert('edit-profile-alert', 'Name updated successfully!', 'success');
+                    setTimeout(() => {
+                        closeEditProfileModal();
                         showNotification('Profile updated successfully!', 'success');
-                    }
-                }, 2000);
+                    }, 1500);
+                }
 
             } catch (error) {
                 showAlert('edit-profile-alert', error.message, 'error');
+            }
+        }
+
+        // Handle email change confirmation when user clicks verification link
+        async function handleEmailChangeConfirmation() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const type = urlParams.get('type');
+
+            if (type === 'email_change' && token) {
+                try {
+                    // Verify the email change token
+                    const { data, error } = await supabase.auth.verifyOtp({
+                        token_hash: token,
+                        type: 'email_change'
+                    });
+
+                    if (error) throw error;
+
+                    // Get pending change info
+                    const pendingChange = JSON.parse(localStorage.getItem('pendingEmailChange') || '{}');
+
+                    // Clear pending change immediately
+                    localStorage.removeItem('pendingEmailChange');
+
+                    // Sign out from all sessions to force re-login with new email
+                    await supabase.auth.signOut({ scope: 'global' });
+
+                    // Clear all auth-related storage
+                    localStorage.removeItem('supabase.auth.token');
+                    const projectId = supabaseUrl.split('//')[1]?.split('.')[0];
+                    if (projectId) {
+                        localStorage.removeItem(`sb-${projectId}-auth-token`);
+                    }
+
+                    // Reset application state
+                    currentUser = null;
+                    isPasswordResetFlow = false;
+
+                    // Show success and redirect to sign in
+                    showNotification(`Email successfully changed! Please sign in with your new email address.`, 'success');
+                    showSignIn();
+
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+
+                } catch (error) {
+                    console.error('Email change verification error:', error);
+                    showNotification('Email verification failed. Please try the process again.', 'error');
+
+                    // Clean URL and show sign in
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    showSignIn();
+                }
+            }
+        }
+
+        function showEmailVerificationStep() {
+            const alertContainer = document.getElementById('edit-profile-alert');
+
+            // Add OTP verification form
+            alertContainer.innerHTML += `
+                <div id="email-verification-step" style="margin-top: 1rem; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;">
+                    <label for="email-otp-code" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Verification Code:</label>
+                    <input type="text" id="email-otp-code" placeholder="Enter 6-digit code" maxlength="6" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 0.5rem;">
+                    <button type="button" onclick="verifyEmailChangeOTP()" class="btn" style="width: 100%; margin: 0;">Verify & Change Email</button>
+                </div>
+            `;
+
+            document.getElementById('email-otp-code').focus();
+        }
+
+        async function verifyEmailChangeOTP() {
+            const otpCode = document.getElementById('email-otp-code').value.trim();
+            const pendingChange = JSON.parse(localStorage.getItem('pendingEmailChange') || '{}');
+
+            if (!otpCode || otpCode.length !== 6) {
+                showAlert('edit-profile-alert', 'Please enter a valid 6-digit code.', 'error');
+                return;
+            }
+
+            if (!pendingChange.newEmail) {
+                showAlert('edit-profile-alert', 'No pending email change found.', 'error');
+                return;
+            }
+
+            try {
+                // Verify the OTP
+                const { error: verifyError } = await supabase.auth.verifyOtp({
+                    email: pendingChange.oldEmail,
+                    token: otpCode,
+                    type: 'email'
+                });
+
+                if (verifyError) throw verifyError;
+
+                // Logout all sessions before changing email
+                await supabase.auth.signOut({ scope: 'global' });
+
+                // Clear auth-related storage
+                localStorage.removeItem('supabase.auth.token');
+                const projectId = supabaseUrl.split('//')[1]?.split('.')[0];
+                if (projectId) {
+                    localStorage.removeItem(`sb-${projectId}-auth-token`);
+                }
+
+                // Now update the email
+                const { error: updateError } = await supabase.auth.updateUser({
+                    email: pendingChange.newEmail
+                });
+
+                if (updateError) throw updateError;
+
+                // Clear pending change
+                localStorage.removeItem('pendingEmailChange');
+
+                showAlert('edit-profile-alert',
+                    `Email changed successfully! Please sign in with your new email: ${pendingChange.newEmail}`,
+                    'success');
+
+                setTimeout(() => {
+                    closeEditProfileModal();
+                    currentUser = null;
+                    isPasswordResetFlow = false;
+                    showSignIn();
+                    showNotification('Email updated successfully. Please sign in with your new email.', 'success');
+                }, 3000);
+
+            } catch (error) {
+                showAlert('edit-profile-alert', `Verification failed: ${error.message}`, 'error');
             }
         }
 
