@@ -1902,7 +1902,7 @@
                 date: document.getElementById('date').value,
                 type: type,
                 note: note,
-                billed: document.getElementById('form-billed-toggle').checked
+                billed: document.getElementById('form-billed-toggle').classList.contains('active')
             };
 
             try {
@@ -2204,7 +2204,7 @@
                 if (billingFilter === 'billed') query = query.eq('billed', true);
                 if (billingFilter === 'unbilled') query = query.eq('billed', false);
 
-                const { data, error } = await query.order('date');
+                const { data, error } = await query.order('date', { ascending: false });
                 if (error) throw error;
 
                 filteredExpenses = data || [];
