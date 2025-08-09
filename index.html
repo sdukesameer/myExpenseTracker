@@ -1505,6 +1505,20 @@
             updateDateDisplay();
         });
 
+        function populateFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const amount = urlParams.get('amount');
+            const date = urlParams.get('date');
+            
+            if (amount) document.getElementById('amount').value = amount;
+            if (date) document.getElementById('date').value = date;
+            
+            if (amount || date) {
+                // Clear URL parameters
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
         // Authentication functions
         function showSignIn() {
             hideAllForms();
@@ -1827,6 +1841,7 @@
             await loadExpenses();
             await updateStatistics();
             updateBudgetDisplay();
+            populateFromURL();
             
             // Update budget button text after budget is loaded
             setTimeout(() => {
@@ -2119,9 +2134,13 @@
 
             remainingElement.textContent = `Remaining: ₹${remaining.toFixed(2)}`;
 
-            // Change color if remaining is less than 100
-            if (remaining < 100) {
+            const budgetUsedPercentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
+
+            if (budgetUsedPercentage >= 90) {
                 remainingElement.style.color = '#ef4444';
+                remainingElement.style.fontWeight = '600';
+            } else if (budgetUsedPercentage >= 75) {
+                remainingElement.style.color = '#f59e0b';
                 remainingElement.style.fontWeight = '600';
             } else {
                 remainingElement.style.color = '';
@@ -2137,9 +2156,11 @@
             progressBar.classList.toggle('over-budget', percentage > 100);
 
             // Show warnings with appropriate colors
-            if (percentage > 90 && percentage <= 100) {
-                showNotification('Warning: You\'re approaching your budget limit!', 'warning');
-            } else if (percentage > 100) {
+            if (percentage >= 90 && percentage < 100) {
+                showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
+            } else if (percentage >= 75 && percentage < 90) {
+                showNotification('Notice: You\'ve used 75% of your budget', 'info');
+            } else if (percentage >= 100) {
                 showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
             }
         }
