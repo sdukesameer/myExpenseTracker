@@ -1824,8 +1824,8 @@
             // Load budget first, then other data
             await loadUserBudget();
             loadUserTypes();
-            loadExpenses();
-            updateStatistics();
+            await loadExpenses();
+            await updateStatistics();
             updateBudgetDisplay();
             
             // Update budget button text after budget is loaded
