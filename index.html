@@ -1821,20 +1821,18 @@
             document.getElementById('user-email').textContent = currentUser.email;
             document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
+            // Load budget first, then other data
+            await loadUserBudget();
             loadUserTypes();
             loadExpenses();
             updateStatistics();
             updateBudgetDisplay();
-
-            loadUserBudget().then(() => {
+            
+            // Update budget button text after budget is loaded
+            setTimeout(() => {
                 const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
                 const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
                 if (budgetBtn) budgetBtn.textContent = budgetText;
-            });
-
-            setTimeout(() => {
-                const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
-                document.querySelector('.budget-tracker h3 + .btn').textContent = budgetText;
             }, 100);
         }
 
@@ -2887,7 +2885,7 @@
                         closeEditProfileModal();
                         showSignIn();
                         showNotification('Signed out. Check your email for verification link.', 'info', 5000);
-                    }, 2000);
+                    }, 5000);
 
                     return;
                 }
