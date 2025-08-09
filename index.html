@@ -2993,7 +2993,7 @@
 
             // Update hidden checkbox for form submission
             const checkbox = document.getElementById('billed');
-            checkbox.checked = !isActive;
+            checkbox.checked = toggle.classList.contains('active');
         }
     </script>
 </body>
