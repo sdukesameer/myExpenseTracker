@@ -91,6 +91,7 @@
             transition: transform 0.3s ease;
             max-width: 350px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            margin-bottom: 0.5rem;
         }
 
         .notification.show { transform: translateX(0); }
@@ -660,7 +661,7 @@
         }
 
         .stat-value {
-            font-size: clamp(1.3rem, 4vw, 2rem);
+            font-size: clamp(1.1rem, 3.5vw, 1.6rem);
             font-weight: 800;
             margin-bottom: 0.5rem;
             position: relative;
@@ -1411,16 +1412,29 @@
         // FIXED: Notification system properly scoped
         function showNotification(message, type = 'info', duration = 3000) {
             const container = document.getElementById('notification-container');
+            
+            // Position existing notifications higher
+            const existingNotifications = container.querySelectorAll('.notification');
+            existingNotifications.forEach((notification, index) => {
+                const currentTop = parseInt(notification.style.top || '20') + 80;
+                notification.style.top = currentTop + 'px';
+            });
+            
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.textContent = message;
-
+            notification.style.top = '20px';
+        
             container.appendChild(notification);
             setTimeout(() => notification.classList.add('show'), 100);
-
+        
             setTimeout(() => {
                 notification.classList.remove('show');
-                setTimeout(() => container.removeChild(notification), 300);
+                setTimeout(() => {
+                    if (container.contains(notification)) {
+                        container.removeChild(notification);
+                    }
+                }, 300);
             }, duration);
         }
 
@@ -2122,44 +2136,39 @@
 
         function updateBudgetDisplay() {
             if (!currentUser) return;
-
+        
             let monthlySpent = 0;
             const monthlyExpensesElement = document.getElementById('monthly-expenses');
             if (monthlyExpensesElement) {
                 monthlySpent = parseFloat(monthlyExpensesElement.textContent.replace('₹', '')) || 0;
             }
-
+        
             const remaining = monthlyBudget - monthlySpent;
             const remainingElement = document.getElementById('budget-remaining');
-
+        
             remainingElement.textContent = `Remaining: ₹${remaining.toFixed(2)}`;
-
+        
             const budgetUsedPercentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
-
+        
             if (budgetUsedPercentage >= 90) {
                 remainingElement.style.color = '#ef4444';
-                remainingElement.style.fontWeight = '600';
-            } else if (budgetUsedPercentage >= 75) {
-                remainingElement.style.color = '#f59e0b';
                 remainingElement.style.fontWeight = '600';
             } else {
                 remainingElement.style.color = '';
                 remainingElement.style.fontWeight = '';
             }
-
+        
             document.getElementById('budget-total').textContent = `Budget: ₹${monthlyBudget.toFixed(2)}`;
-
+        
             const progressBar = document.getElementById('budget-progress-bar');
             const percentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
-
+        
             progressBar.style.width = `${Math.min(percentage, 100)}%`;
             progressBar.classList.toggle('over-budget', percentage > 100);
-
+        
             // Show warnings with appropriate colors
             if (percentage >= 90 && percentage < 100) {
                 showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
-            } else if (percentage >= 75 && percentage < 90) {
-                showNotification('Notice: You\'ve used 75% of your budget', 'info');
             } else if (percentage >= 100) {
                 showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
             }
