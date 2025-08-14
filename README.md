@@ -259,10 +259,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - 🐛 [Report Bug](https://github.com/sdukesameer/myExpenseTracker/issues)
 - 💡 [Request Feature](https://github.com/sdukesameer/myExpenseTracker/issues)
-- 📧 [Contact Developer](mailto:your-email@example.com)
+- 📧 [Contact Developer](mailto:sdukesameer@gmail.com)
 
 ---
 
 ⭐ **Star this repository if it helped you track your expenses better!**
 
-Made with ❤️ by [MD SAMEER](https://www.linkedin.co.in/sdukesameer)
+Made with ❤️ by [MD SAMEER](https://www.linkedin.com/in/sdukesameer)
