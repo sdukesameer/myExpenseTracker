@@ -15,11 +15,12 @@
     <link rel="apple-touch-icon" sizes="76x76" href="/icons/apple-touch-icon-76x76.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/android-chrome-192x192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/android-chrome-512x512.png">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Expense Tracker">
     <!-- End Favicon Setup -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -448,6 +449,98 @@
         .expense-item:last-child {
             border-bottom: none;
             margin-bottom: 0;
+        }
+
+        .expense-item.edit-mode .expense-amount input,
+        .expense-item.edit-mode .expense-note input {
+            background: rgba(255,255,255,0.8);
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: inherit;
+            font-weight: inherit;
+            color: inherit;
+            width: 100%;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .expense-item.edit-mode .expense-amount input:focus,
+        .expense-item.edit-mode .expense-note input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        .expense-item.edit-mode .expense-amount input {
+            font-weight: 700;
+            color: #e74c3c;
+            font-size: 1.2rem;
+            width: 120px;
+        }
+
+        .expense-item.edit-mode .expense-note input {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin: 0.25rem 0;
+        }
+
+        .expense-item.edit-mode .expense-type select {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            outline: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        .expense-item.edit-mode .expense-type select:focus {
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+        }
+
+        .expense-item.edit-mode .expense-date input {
+            background: #f9fafb;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            color: #9ca3af;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .expense-item.edit-mode .expense-date input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        @media (max-width: 768px) {
+            .expense-item.edit-mode .expense-amount input {
+                width: 100px;
+                font-size: 1.1rem;
+            }
+
+            .expense-item.edit-mode .expense-type select {
+                font-size: 0.65rem;
+                padding: 0.25rem 0.6rem;
+            }
+
+            .expense-item.edit-mode .expense-date input {
+                font-size: 0.75rem;
+                padding: 0.2rem 0.4rem;
+            }
+        }
+
+        .expense-item.edit-mode .billed-status {
+            display: none !important;
         }
 
         .expense-details {
@@ -886,6 +979,74 @@
 
         .user-menu-item:hover {
             background: #f3f4f6;
+        }
+
+        .dark-mode .expenses-list {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .dark-mode .expenses-header h3 {
+            color: #f9fafb;
+        }
+
+        .dark-mode .expense-item {
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .dark-mode .expense-item:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        }
+
+        .dark-mode .expense-amount {
+            color: #fca5a5;
+        }
+
+        .dark-mode .expense-note {
+            color: #d1d5db;
+        }
+
+        .dark-mode .expense-meta {
+            color: #9ca3af;
+        }
+
+        .dark-mode .modal-content {
+            background: #1f2937;
+            color: white;
+        }
+
+        .dark-mode .modal h3,
+        .dark-mode .modal h4 {
+            color: #f9fafb;
+        }
+
+        .dark-mode .form-group label {
+            color: #f3f4f6;
+        }
+
+        .dark-mode .form-group input,
+        .dark-mode .form-group select {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .dark-mode .form-group input:focus,
+        .dark-mode .form-group select:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #667eea;
+        }
+
+        .dark-mode .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .dark-mode .expense-list-container {
+            color: white;
+        }
+
+        .dark-mode .expense-list-container > div > div {
+            border-color: rgba(255, 255, 255, 0.1);
         }
 
         /* Improved mobile responsiveness */
@@ -1374,7 +1535,6 @@
         let currentChart = null;
         let filteredExpenses = [];
         let isPasswordResetFlow = false;
-        let hasUnsavedBillingChanges = false;
         let monthlyBudget = 0; // Remove localStorage.getItem part
 
         // Initialize Supabase - FIXED: Remove import.meta usage
@@ -1412,22 +1572,22 @@
         // FIXED: Notification system properly scoped
         function showNotification(message, type = 'info', duration = 3000) {
             const container = document.getElementById('notification-container');
-            
+
             // Position existing notifications higher
             const existingNotifications = container.querySelectorAll('.notification');
             existingNotifications.forEach((notification, index) => {
                 const currentTop = parseInt(notification.style.top || '20') + 80;
                 notification.style.top = currentTop + 'px';
             });
-            
+
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.textContent = message;
             notification.style.top = '20px';
-        
+
             container.appendChild(notification);
             setTimeout(() => notification.classList.add('show'), 100);
-        
+
             setTimeout(() => {
                 notification.classList.remove('show');
                 setTimeout(() => {
@@ -1448,13 +1608,17 @@
                 document.getElementById('theme-icon').textContent = '☀️';
             }
 
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('date').value = today;
-            document.getElementById('end-date').value = today;
+            // Set today's date in IST
+            const today = new Date();
+            const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+            const istDate = new Date(today.getTime() + istOffset);
+            const todayIST = istDate.toISOString().split('T')[0];
 
-            const firstDayOfMonth = new Date();
-            firstDayOfMonth.setDate(1);
-            firstDayOfMonth.setHours(5, 30, 0, 0);
+            document.getElementById('date').value = todayIST;
+            document.getElementById('end-date').value = todayIST;
+
+            // Set first day of month in IST
+            const firstDayOfMonth = new Date(istDate.getFullYear(), istDate.getMonth(), 1);
             document.getElementById('start-date').value = firstDayOfMonth.toISOString().split('T')[0];
 
             handleSecureEmailLink();
@@ -1518,20 +1682,6 @@
 
             updateDateDisplay();
         });
-
-        function populateFromURL() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const amount = urlParams.get('amount');
-            const date = urlParams.get('date');
-            
-            if (amount) document.getElementById('amount').value = amount;
-            if (date) document.getElementById('date').value = date;
-            
-            if (amount || date) {
-                // Clear URL parameters
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-        }
 
         // Authentication functions
         function showSignIn() {
@@ -1855,8 +2005,7 @@
             await loadExpenses();
             await updateStatistics();
             updateBudgetDisplay();
-            populateFromURL();
-            
+
             // Update budget button text after budget is loaded
             setTimeout(() => {
                 const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
@@ -1900,6 +2049,127 @@
             } catch (error) {
                 console.error('Failed to load types:', error);
             }
+        }
+
+        async function loadTypesForEdit() {
+            try {
+                const { data, error } = await supabase
+                    .from('expense_types')
+                    .select('name')
+                    .order('name');
+
+                if (error) throw error;
+                return data.map(type => type.name);
+            } catch (error) {
+                console.error('Failed to load types:', error);
+                return [];
+            }
+        }
+
+        function createEditableElements(expenseId, expense) {
+            const expenseItem = document.querySelector(`[data-id="${expenseId}"]`);
+
+            // Amount input with ₹ prefix
+            const amountEl = expenseItem.querySelector('.expense-amount');
+            const originalAmount = parseFloat(amountEl.dataset.original);
+            amountEl.innerHTML = `<input type="number" step="0.01" min="0" max="1000000" value="${originalAmount}" placeholder="0.00" onchange="trackExpenseChange(${expenseId})">`;
+
+            // Note input
+            const noteEl = expenseItem.querySelector('.expense-note');
+            const originalNote = noteEl.dataset.original;
+            noteEl.innerHTML = `<input type="text" value="${originalNote}" placeholder="Add description..." maxlength="500" onchange="trackExpenseChange(${expenseId})">`;
+
+            // Type select with styled dropdown
+            const typeEl = expenseItem.querySelector('.expense-type');
+            const originalType = typeEl.dataset.original;
+            loadTypesForEdit().then(types => {
+                typeEl.innerHTML = `<select onchange="trackExpenseChange(${expenseId})">
+                    ${types.map(type => `<option value="${type}" ${type === originalType ? 'selected' : ''}>${type}</option>`).join('')}
+                </select>`;
+            });
+
+            // Date input
+            const dateEl = expenseItem.querySelector('.expense-date');
+            const originalDate = dateEl.dataset.original;
+            dateEl.innerHTML = `<input type="date" value="${originalDate}" onchange="trackExpenseChange(${expenseId})">`;
+        }
+
+        function restoreStaticElements(expenseId) {
+            const expenseItem = document.querySelector(`[data-id="${expenseId}"]`);
+            const edits = expenseEdits[expenseId] || {};
+
+            // Restore amount with ₹ prefix
+            const amountEl = expenseItem.querySelector('.expense-amount');
+            const finalAmount = edits.amount !== undefined ? edits.amount : parseFloat(amountEl.dataset.original);
+            amountEl.innerHTML = `₹${finalAmount.toFixed(2)}`;
+
+            // Restore note
+            const noteEl = expenseItem.querySelector('.expense-note');
+            const finalNote = edits.note !== undefined ? edits.note : noteEl.dataset.original;
+            noteEl.innerHTML = finalNote || 'No description';
+
+            // Restore type with original styling
+            const typeEl = expenseItem.querySelector('.expense-type');
+            const finalType = edits.type !== undefined ? edits.type : typeEl.dataset.original;
+            typeEl.innerHTML = finalType;
+            typeEl.className = 'expense-type'; // Restore original class
+
+            // Restore date
+            const dateEl = expenseItem.querySelector('.expense-date');
+            const finalDate = edits.date !== undefined ? edits.date : dateEl.dataset.original;
+            dateEl.innerHTML = formatDate(finalDate);
+        }
+
+        function trackExpenseChange(expenseId) {
+            const expenseItem = document.querySelector(`[data-id="${expenseId}"]`);
+
+            // Get current values
+            const amountInput = expenseItem.querySelector('.expense-amount input');
+            const noteInput = expenseItem.querySelector('.expense-note input');
+            const typeSelect = expenseItem.querySelector('.expense-type select');
+            const dateInput = expenseItem.querySelector('.expense-date input');
+
+            const currentAmount = parseFloat(amountInput?.value || 0);
+            const currentNote = noteInput?.value?.trim() || '';
+            const currentType = typeSelect?.value || '';
+            const currentDate = dateInput?.value || '';
+
+            // Get original values
+            const originalAmount = parseFloat(expenseItem.querySelector('.expense-amount').dataset.original);
+            const originalNote = expenseItem.querySelector('.expense-note').dataset.original;
+            const originalType = expenseItem.querySelector('.expense-type').dataset.original;
+            const originalDate = expenseItem.querySelector('.expense-date').dataset.original;
+            const originalBilled = expenseItem.querySelector('.billed-status').dataset.billed === 'true';
+
+            // Initialize edits object
+            if (!expenseEdits[expenseId]) {
+                expenseEdits[expenseId] = {
+                    originalAmount, originalNote, originalType, originalDate, originalBilled,
+                    billed: originalBilled
+                };
+            }
+
+            // Update current values
+            expenseEdits[expenseId].amount = currentAmount;
+            expenseEdits[expenseId].note = currentNote;
+            expenseEdits[expenseId].type = currentType;
+            expenseEdits[expenseId].date = currentDate;
+
+            // Check if anything changed from original
+            const hasChanges = currentAmount !== originalAmount ||
+                            currentNote !== originalNote ||
+                            currentType !== originalType ||
+                            currentDate !== originalDate ||
+                            expenseEdits[expenseId].billed !== originalBilled;
+
+            if (hasChanges) {
+                editedExpenses.add(expenseId);
+            } else {
+                editedExpenses.delete(expenseId);
+                // Don't delete the object completely, keep it for toggle state
+            }
+
+            updateSaveButton();
         }
 
         async function handleAddExpense(e) {
@@ -2136,20 +2406,20 @@
 
         function updateBudgetDisplay() {
             if (!currentUser) return;
-        
+
             let monthlySpent = 0;
             const monthlyExpensesElement = document.getElementById('monthly-expenses');
             if (monthlyExpensesElement) {
                 monthlySpent = parseFloat(monthlyExpensesElement.textContent.replace('₹', '')) || 0;
             }
-        
+
             const remaining = monthlyBudget - monthlySpent;
             const remainingElement = document.getElementById('budget-remaining');
-        
+
             remainingElement.textContent = `Remaining: ₹${remaining.toFixed(2)}`;
-        
+
             const budgetUsedPercentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
-        
+
             if (budgetUsedPercentage >= 90) {
                 remainingElement.style.color = '#ef4444';
                 remainingElement.style.fontWeight = '600';
@@ -2157,15 +2427,15 @@
                 remainingElement.style.color = '';
                 remainingElement.style.fontWeight = '';
             }
-        
+
             document.getElementById('budget-total').textContent = `Budget: ₹${monthlyBudget.toFixed(2)}`;
-        
+
             const progressBar = document.getElementById('budget-progress-bar');
             const percentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
-        
+
             progressBar.style.width = `${Math.min(percentage, 100)}%`;
             progressBar.classList.toggle('over-budget', percentage > 100);
-        
+
             // Show warnings with appropriate colors
             if (percentage >= 90 && percentage < 100) {
                 showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
@@ -2179,22 +2449,26 @@
             const dateDisplay = document.getElementById('date-display');
 
             if (dateInput && dateInput.value) {
-                const date = new Date(dateInput.value + 'T00:00:00');
+                // Create date in IST (UTC+5:30)
+                const [year, month, day] = dateInput.value.split('-');
+                const date = new Date(year, month - 1, day); // month is 0-indexed
+
                 const options = {
                     weekday: 'long',
                     day: 'numeric',
                     month: 'long',
-                    year: 'numeric'
+                    year: 'numeric',
+                    timeZone: 'Asia/Kolkata'
                 };
 
-                const formattedDate = date.toLocaleDateString('en-GB', options);
-                const day = date.getDate();
-                const suffix = day % 10 === 1 && day !== 11 ? 'st' :
-                            day % 10 === 2 && day !== 12 ? 'nd' :
-                            day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+                const formattedDate = date.toLocaleDateString('en-IN', options);
+                const dayNum = date.getDate();
+                const suffix = dayNum % 10 === 1 && dayNum !== 11 ? 'st' :
+                            dayNum % 10 === 2 && dayNum !== 12 ? 'nd' :
+                            dayNum % 10 === 3 && dayNum !== 13 ? 'rd' : 'th';
 
                 if (dateDisplay) {
-                    dateDisplay.textContent = formattedDate.replace(day.toString(), `${day}${suffix}`);
+                    dateDisplay.textContent = formattedDate.replace(dayNum.toString(), `${dayNum}${suffix}`);
                 }
             } else if (dateDisplay) {
                 dateDisplay.textContent = '';
@@ -2216,7 +2490,6 @@
                 currentChart = null;
             }
             // Reset billing toggle tracking
-            hasUnsavedBillingChanges = false;
             editedExpenses.clear();
             expenseEdits = {};
         }
@@ -2470,35 +2743,35 @@
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
                         ${filteredExpenses.map(expense => `
                             <div class="expense-item" style="margin: 0; border-radius: 0;" data-id="${expense.id}">
-                            <div class="expense-details">
-                                <div class="expense-amount">₹${parseFloat(expense.amount).toFixed(2)}</div>
-                                <div class="expense-note">${expense.note || 'No description'}</div>
-                                <div class="expense-meta">
-                                    <span class="expense-type">${expense.type}</span>
-                                    <span class="billed-status" data-billed="${expense.billed}">
-                                        ${expense.billed ? '<span class="billed-badge">BILLED</span>' : '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>'}
-                                    </span>
-                                    <span>${formatDate(expense.date)}</span>
+                                <div class="expense-details">
+                                    <div class="expense-amount" data-original="${expense.amount}">₹${parseFloat(expense.amount).toFixed(2)}</div>
+                                    <div class="expense-note" data-original="${expense.note || ''}">${expense.note || 'No description'}</div>
+                                    <div class="expense-meta">
+                                        <span class="expense-type" data-original="${expense.type}">${expense.type}</span>
+                                        <span class="billed-status" data-billed="${expense.billed}">
+                                            ${expense.billed ? '<span class="billed-badge">BILLED</span>' : '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>'}
+                                        </span>
+                                        <span class="expense-date" data-original="${expense.date}">${formatDate(expense.date)}</span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <svg class="edit-icon" id="edit-icon-${expense.id}" onclick="toggleEditMode(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="24" height="24" style="background: #667eea; color: white; stroke: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
+                                            <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
+                                            <path d="M14.5 5.5 18.5 9.5"></path>
+                                        </svg>
+                                        <svg class="delete-btn" id="delete-btn-${expense.id}" onclick="deleteFilteredExpense(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" title="Delete expense" style="background: #ef4444; color: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
+                                            <polyline points="3,6 5,6 21,6"></polyline>
+                                            <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,2h4a2,2 0 0,1 2,2v2"></path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="edit-toggle-container" id="edit-container-${expense.id}" style="display: none;">
+                                        <div class="billed-toggle ${expense.billed ? 'active' : ''}" onclick="toggleBillingStatus(${expense.id})"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <svg class="edit-icon" id="edit-icon-${expense.id}" onclick="toggleEditMode(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="24" height="24" style="background: #667eea; color: white; stroke: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
-                                        <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
-                                        <path d="M14.5 5.5 18.5 9.5"></path>
-                                    </svg>
-                                    <svg class="delete-btn" id="delete-btn-${expense.id}" onclick="deleteFilteredExpense(${expense.id})" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" title="Delete expense" style="background: #ef4444; color: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; padding: 6px;">
-                                        <polyline points="3,6 5,6 21,6"></polyline>
-                                        <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
-                                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                                    </svg>
-                                </div>
-                                <div class="edit-toggle-container" id="edit-container-${expense.id}" style="display: none;">
-                                    <div class="billed-toggle ${expense.billed ? 'active' : ''}" onclick="toggleBillingStatus(${expense.id})"></div>
-                                </div>
-                            </div>
-                        </div>
                         `).join('')}
                     </div>
                 </div>
@@ -2628,58 +2901,170 @@
             const container = document.getElementById(`edit-container-${expenseId}`);
             const icon = document.getElementById(`edit-icon-${expenseId}`);
             const deleteBtn = document.getElementById(`delete-btn-${expenseId}`);
+            const expenseItem = document.querySelector(`[data-id="${expenseId}"]`);
             const isVisible = container.style.display === 'flex';
-            const originalBilledStatus = container.closest('.expense-item').querySelector('.billed-status').dataset.billed === 'true';
 
             if (isVisible) {
-                // When tick is clicked, update the billed-badge display based on current edits
+                // Save mode - restore static elements and update display
+                expenseItem.classList.remove('edit-mode');
+                restoreStaticElements(expenseId);
+
+                // Update billed status display
                 const billedStatusSpan = container.closest('.expense-item').querySelector('.billed-status');
                 const currentEdit = expenseEdits[expenseId];
 
                 if (currentEdit && currentEdit.billed !== undefined) {
-                    // Update visual display based on edited state
                     billedStatusSpan.innerHTML = currentEdit.billed ?
                         '<span class="billed-badge">BILLED</span>' :
                         '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>';
                     billedStatusSpan.dataset.billed = currentEdit.billed;
                 }
 
-                // Hide toggle when tick is clicked and show delete button
+                // Hide toggle
                 container.style.display = 'none';
+
+                // Check if there are any changes to determine button display
+                const hasChanges = editedExpenses.has(expenseId);
+
+                if (hasChanges) {
+                    // Show cancel (X) button
+                    deleteBtn.innerHTML = `<path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2" fill="none"></path>`;
+                    deleteBtn.style.background = '#ef4444';
+                    deleteBtn.onclick = () => cancelEdit(expenseId);
+                    deleteBtn.title = 'Cancel changes';
+                } else {
+                    // Show delete button
+                    deleteBtn.innerHTML = `
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,2h4a2,2 0 0,1 2,2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                    `;
+                    deleteBtn.style.background = '#ef4444';
+                    deleteBtn.onclick = () => deleteFilteredExpense(expenseId);
+                    deleteBtn.title = 'Delete expense';
+                }
+
                 deleteBtn.style.display = 'block';
+
                 // Switch back to pencil icon
                 icon.innerHTML = `
                     <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
                     <path d="M14.5 5.5 18.5 9.5"></path>
                 `;
-                icon.className = 'edit-icon';
                 icon.style.background = '#667eea';
-                icon.style.color = 'white';
-                icon.style.stroke = 'white';
-                icon.style.borderRadius = '8px';
-                icon.style.padding = '6px';
+                icon.onclick = () => toggleEditMode(expenseId);
             } else {
-                // Show toggle and hide delete button, switch to check/save icon
+                // Edit mode - show editable elements
+                expenseItem.classList.add('edit-mode');
+
+                // Get original data for this expense
+                const expense = filteredExpenses.find(e => e.id == expenseId);
+                createEditableElements(expenseId, expense);
+
+                // Show toggle and hide delete button
                 container.style.display = 'flex';
                 deleteBtn.style.display = 'none';
-                icon.innerHTML = `
-                    <polyline points="20,6 9,17 4,12"></polyline>
-                `;
-                icon.className = 'save-icon';
-                icon.style.background = '#10b981';
-                icon.style.color = 'white';
-                icon.style.stroke = 'white';
-                icon.style.borderRadius = '8px';
-                icon.style.padding = '6px';
 
-                // Initialize with current state if not already tracked
+                // Switch to check/save icon
+                icon.innerHTML = `<polyline points="20,6 9,17 4,12"></polyline>`;
+                icon.style.background = '#10b981';
+                icon.onclick = () => toggleEditMode(expenseId);
+
+                // Change delete button to cancel (X) button
+                const cancelBtn = document.getElementById(`delete-btn-${expenseId}`);
+                cancelBtn.innerHTML = `<path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="2" fill="none"></path>`;
+                cancelBtn.style.background = '#ef4444'; // Changed from '#6b7280' to red
+                cancelBtn.onclick = () => cancelEdit(expenseId);
+                cancelBtn.title = 'Cancel changes';
+                cancelBtn.style.display = 'block';
+
+                // Initialize tracking if not already done
                 if (!expenseEdits[expenseId]) {
                     expenseEdits[expenseId] = {
-                        originalBilled: originalBilledStatus,
-                        billed: originalBilledStatus
+                        originalAmount: parseFloat(expense.amount),
+                        originalNote: expense.note || '',
+                        originalType: expense.type,
+                        originalDate: expense.date,
+                        originalBilled: expense.billed,
+                        billed: expense.billed
                     };
                 }
             }
+
+            updateSaveButton();
+        }
+
+        function cancelEdit(expenseId) {
+            const container = document.getElementById(`edit-container-${expenseId}`);
+            const icon = document.getElementById(`edit-icon-${expenseId}`);
+            const deleteBtn = document.getElementById(`delete-btn-${expenseId}`);
+            const expenseItem = document.querySelector(`[data-id="${expenseId}"]`);
+
+            // Remove from edited set and clear edits
+            editedExpenses.delete(expenseId);
+            delete expenseEdits[expenseId];
+
+            // Exit edit mode
+            expenseItem.classList.remove('edit-mode');
+
+            // Restore original static elements from DB data
+            const expense = filteredExpenses.find(e => e.id == expenseId);
+            const amountEl = expenseItem.querySelector('.expense-amount');
+            const noteEl = expenseItem.querySelector('.expense-note');
+            const typeEl = expenseItem.querySelector('.expense-type');
+            const dateEl = expenseItem.querySelector('.expense-date');
+            const billedStatusEl = expenseItem.querySelector('.billed-status');
+
+            // Reset to original DB values
+            amountEl.innerHTML = `₹${parseFloat(expense.amount).toFixed(2)}`;
+            amountEl.dataset.original = expense.amount;
+
+            noteEl.innerHTML = expense.note || 'No description';
+            noteEl.dataset.original = expense.note || '';
+
+            typeEl.innerHTML = expense.type;
+            typeEl.dataset.original = expense.type;
+
+            dateEl.innerHTML = formatDate(expense.date);
+            dateEl.dataset.original = expense.date;
+
+            // Reset billing status
+            billedStatusEl.innerHTML = expense.billed ?
+                '<span class="billed-badge">BILLED</span>' :
+                '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>';
+            billedStatusEl.dataset.billed = expense.billed;
+
+            // Reset toggle to original state
+            const toggle = container.querySelector('.billed-toggle');
+            if (expense.billed) {
+                toggle.classList.add('active');
+            } else {
+                toggle.classList.remove('active');
+            }
+
+            // Hide toggle and restore delete button
+            container.style.display = 'none';
+            deleteBtn.style.display = 'block';
+
+            // Restore original delete button
+            deleteBtn.innerHTML = `
+                <polyline points="3,6 5,6 21,6"></polyline>
+                <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,2h4a2,2 0 0,1 2,2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            `;
+            deleteBtn.style.background = '#ef4444';
+            deleteBtn.onclick = () => deleteFilteredExpense(expenseId);
+            deleteBtn.title = 'Delete expense';
+
+            // Switch back to pencil icon
+            icon.innerHTML = `
+                <path d="m18 2 4 4-14 14H4v-4L18 2z"></path>
+                <path d="M14.5 5.5 18.5 9.5"></path>
+            `;
+            icon.style.background = '#667eea';
+            icon.onclick = () => toggleEditMode(expenseId);
 
             updateSaveButton();
         }
@@ -2694,29 +3079,37 @@
 
             // Track the change
             if (!expenseEdits[expenseId]) {
-                expenseEdits[expenseId] = { originalBilled: originalBilledStatus };
+                const expenseItem = document.querySelector(`[data-id="${expenseId}"]`);
+                expenseEdits[expenseId] = {
+                    originalAmount: parseFloat(expenseItem.querySelector('.expense-amount').dataset.original),
+                    originalNote: expenseItem.querySelector('.expense-note').dataset.original,
+                    originalType: expenseItem.querySelector('.expense-type').dataset.original,
+                    originalDate: expenseItem.querySelector('.expense-date').dataset.original,
+                    originalBilled: originalBilledStatus
+                };
             }
             expenseEdits[expenseId].billed = newStatus;
 
-            // Only add to edited if different from original
-            if (newStatus !== originalBilledStatus) {
+            // Check if anything has changed from original
+            const hasChanges = newStatus !== expenseEdits[expenseId].originalBilled ||
+                            (expenseEdits[expenseId].amount !== undefined && expenseEdits[expenseId].amount !== expenseEdits[expenseId].originalAmount) ||
+                            (expenseEdits[expenseId].note !== undefined && expenseEdits[expenseId].note !== expenseEdits[expenseId].originalNote) ||
+                            (expenseEdits[expenseId].type !== undefined && expenseEdits[expenseId].type !== expenseEdits[expenseId].originalType) ||
+                            (expenseEdits[expenseId].date !== undefined && expenseEdits[expenseId].date !== expenseEdits[expenseId].originalDate);
+
+            if (hasChanges) {
                 editedExpenses.add(expenseId);
             } else {
                 editedExpenses.delete(expenseId);
-                delete expenseEdits[expenseId];
             }
 
-            hasUnsavedBillingChanges = editedExpenses.size > 0;
             updateSaveButton();
         }
 
         function updateSaveButton() {
             const saveBtn = document.querySelector('.expense-list-container .save-changes-btn');
             if (saveBtn) {
-                const hasActualChanges = Array.from(editedExpenses).some(id => {
-                    const edit = expenseEdits[id];
-                    return edit && edit.billed !== edit.originalBilled;
-                });
+                const hasActualChanges = editedExpenses.size > 0;
                 saveBtn.style.display = hasActualChanges ? 'block' : 'none';
             }
         }
@@ -2724,19 +3117,28 @@
         async function saveAllChanges() {
             try {
                 for (const [expenseId, changes] of Object.entries(expenseEdits)) {
-                    const { error } = await supabase
-                        .from('expenses')
-                        .update({ billed: changes.billed })
-                        .eq('id', expenseId)
-                        .eq('user_id', currentUser.id);
+                    const updateData = {};
 
-                    if (error) throw error;
+                    if (changes.amount !== changes.originalAmount) updateData.amount = changes.amount;
+                    if (changes.note !== changes.originalNote) updateData.note = changes.note;
+                    if (changes.type !== changes.originalType) updateData.type = changes.type;
+                    if (changes.date !== changes.originalDate) updateData.date = changes.date;
+                    if (changes.billed !== changes.originalBilled) updateData.billed = changes.billed;
+
+                    if (Object.keys(updateData).length > 0) {
+                        const { error } = await supabase
+                            .from('expenses')
+                            .update(updateData)
+                            .eq('id', expenseId)
+                            .eq('user_id', currentUser.id);
+
+                        if (error) throw error;
+                    }
                 }
 
                 // Clear edit state
                 editedExpenses.clear();
                 expenseEdits = {};
-                hasUnsavedBillingChanges = false;
                 updateSaveButton();
 
                 // Refresh displays
