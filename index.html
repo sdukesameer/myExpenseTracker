@@ -2035,6 +2035,15 @@
             document.getElementById('user-email').textContent = currentUser.email;
             document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
+            // Check for URL parameters (amount from SMS automation)
+            const urlParams = new URLSearchParams(window.location.search);
+            const prefilledAmount = urlParams.get('amount');
+            if (prefilledAmount && !isNaN(prefilledAmount)) {
+                document.getElementById('amount').value = prefilledAmount;
+                // Clear URL parameter
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
             // Load budget first, then other data
             await loadUserBudget();
             loadUserTypes();
@@ -2252,6 +2261,7 @@
                 document.getElementById('form-billed-toggle').classList.remove('active');
                 updateDateDisplay();
                 loadExpenses();
+                updateBudgetDisplay();
                 updateStatistics();
                 showNotification('Expense added successfully!', 'success');
             } catch (error) {
