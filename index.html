@@ -677,6 +677,10 @@
             stroke: #6ee7b7;
         }
 
+        .dark-mode .expense-total {
+            color: #f9fafb !important;
+        }
+
         .save-changes-btn {
             background: linear-gradient(135deg, #10b981, #059669);
             color: white;
@@ -2423,7 +2427,9 @@
             const remaining = monthlyBudget - monthlySpent;
             const remainingElement = document.getElementById('budget-remaining');
 
-            remainingElement.textContent = `Remaining: ₹${remaining.toFixed(2)}`;
+            const remainingPercentage = monthlyBudget > 0 ? ((remaining / monthlyBudget) * 100) : 0;
+            const percentageText = monthlyBudget > 0 ? ` (${Math.max(0, remainingPercentage).toFixed(0)}%)` : '';
+            remainingElement.textContent = `Remaining: ₹${remaining.toFixed(2)}${percentageText}`;
 
             const budgetUsedPercentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
 
@@ -2817,7 +2823,7 @@
             const totalAmount = filteredExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
             listContainer.innerHTML += `
                 <div style="margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05)); border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.1);">
-                    <div style="font-size: 1.1rem; font-weight: 600; color: #374151; text-align: right;">
+                    <div class="expense-total" style="font-size: 1.1rem; font-weight: 600; color: #374151; text-align: right;">
                         Total: ₹${totalAmount.toFixed(2)}
                     </div>
                 </div>
