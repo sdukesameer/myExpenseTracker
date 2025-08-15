@@ -2035,11 +2035,12 @@
             document.getElementById('user-email').textContent = currentUser.email;
             document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
-            // Check for URL parameters (amount from SMS automation)
+            // Check for URL parameters (amount from SMS automation)  
             const urlParams = new URLSearchParams(window.location.search);
             const prefilledAmount = urlParams.get('amount');
             if (prefilledAmount && !isNaN(prefilledAmount)) {
                 document.getElementById('amount').value = prefilledAmount;
+                document.getElementById('amount').focus(); // Optional: focus the field
                 // Clear URL parameter
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
