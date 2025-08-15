@@ -1499,6 +1499,12 @@
                         <input type="date" id="end-date">
                     </div>
                     <div class="form-group">
+                        <label for="type-filter">Expense Type:</label>
+                        <select id="type-filter">
+                            <option value="all">All Types</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="billing-filter">Billing Status:</label>
                         <select id="billing-filter">
                             <option value="both">Both</option>
@@ -1619,7 +1625,8 @@
 
             // Set first day of month in IST
             const firstDayOfMonth = new Date(istDate.getFullYear(), istDate.getMonth(), 1);
-            document.getElementById('start-date').value = firstDayOfMonth.toISOString().split('T')[0];
+            const firstDayIST = new Date(firstDayOfMonth.getTime() + istOffset);
+            document.getElementById('start-date').value = firstDayIST.toISOString().split('T')[0];
 
             handleSecureEmailLink();
             handleEmailChangeConfirmation();
@@ -2480,7 +2487,35 @@
             // Update modal title
             document.querySelector('#visualization-modal h3').textContent = 'Expense Analytics & Export';
             document.getElementById('visualization-modal').style.display = 'block';
+
+            // Load types for filter
+            loadTypesForFilter();
+
             applyDateFilter();
+        }
+
+        // Add new function
+        async function loadTypesForFilter() {
+            try {
+                const { data, error } = await supabase
+                    .from('expense_types')
+                    .select('name')
+                    .order('name');
+
+                if (error) throw error;
+
+                const typeFilter = document.getElementById('type-filter');
+                typeFilter.innerHTML = '<option value="all">All Types</option>';
+
+                data.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.name;
+                    option.textContent = type.name;
+                    typeFilter.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load types for filter:', error);
+            }
         }
 
         function closeVisualizationModal() {
@@ -2498,6 +2533,7 @@
             const startDate = document.getElementById('start-date').value;
             const endDate = document.getElementById('end-date').value;
             const billingFilter = document.getElementById('billing-filter').value;
+            const typeFilter = document.getElementById('type-filter').value;
 
             try {
                 let query = supabase.from('expenses').select('*');
@@ -2506,6 +2542,7 @@
                 if (endDate) query = query.lte('date', endDate);
                 if (billingFilter === 'billed') query = query.eq('billed', true);
                 if (billingFilter === 'unbilled') query = query.eq('billed', false);
+                if (typeFilter !== 'all') query = query.eq('type', typeFilter);
 
                 const { data, error } = await query.order('date', { ascending: false });
                 if (error) throw error;
@@ -2773,6 +2810,15 @@
                                 </div>
                             </div>
                         `).join('')}
+                    </div>
+                </div>
+            `;
+            // Calculate and display total
+            const totalAmount = filteredExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+            listContainer.innerHTML += `
+                <div style="margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05)); border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.1);">
+                    <div style="font-size: 1.1rem; font-weight: 600; color: #374151; text-align: right;">
+                        Total: ₹${totalAmount.toFixed(2)}
                     </div>
                 </div>
             `;
