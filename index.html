@@ -365,10 +365,10 @@
 
         .add-type-btn {
             position: absolute;
-            right: 8px;
+            right: 88px;
             top: 50%;
             transform: translateY(-50%);
-            background: #667eea;
+            background: #10b981;
             color: white;
             border: none;
             border-radius: 8px;
@@ -381,13 +381,13 @@
         }
 
         .add-type-btn:hover {
-            background: #5a67d8;
+            background: #059669;
             transform: translateY(-50%) scale(1.05);
         }
 
         .delete-type-btn {
             position: absolute;
-            right: 48px;
+            right: 8px;
             top: 50%;
             transform: translateY(-50%);
             background: #ef4444;
@@ -682,6 +682,7 @@
         }
 
         .dark-mode .expense-form h3,
+        .dark-mode .modal-content h3,
         .dark-mode .expenses-header h3,
         .dark-mode #visualization-modal h3,
         .dark-mode #visualization-modal h4,
@@ -689,7 +690,7 @@
         .dark-mode .billed-toggle.active::before {
             color: #f9fafb !important;
         }
-        
+
         .dark-mode .expense-list-container h4 {
             color: #f9fafb !important;
         }
@@ -697,7 +698,7 @@
         .dark-mode #date-display {
             color: #9ca3af !important;
         }
-        
+
         .dark-mode .form-group span[style*="color: #374151"] {
             color: #f9fafb !important;
         }
@@ -1078,6 +1079,28 @@
             border-color: rgba(255, 255, 255, 0.1);
         }
 
+        .edit-type-btn {
+            position: absolute;
+            right: 48px;
+            top: 50%;
+            transform: translateY(-50%) scaleX(-1);
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .edit-type-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-50%) scaleX(-1) scale(1.05);
+        }
+
         /* Improved mobile responsiveness */
         @media (max-width: 768px) {
             .container {
@@ -1351,7 +1374,7 @@
             <!-- Budget Tracker -->
             <div class="budget-tracker">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3>Monthly Budget</h3>
+                    <h3 id="budget-header">Monthly Budget</h3>
                     <button class="btn btn-small" onclick="setBudget()">Set Budget</button>
                 </div>
                 <div class="budget-progress">
@@ -1381,6 +1404,7 @@
                                     <option value="">Select Type</option>
                                 </select>
                                 <button type="button" class="add-type-btn" onclick="showAddTypeModal()">+</button>
+                                <button type="button" class="edit-type-btn" onclick="showEditTypeModal()" title="Edit type">✎</button>
                                 <button type="button" class="delete-type-btn" onclick="showDeleteTypeModal()" title="Delete type">-</button>
                             </div>
                         </div>
@@ -1472,10 +1496,32 @@
                     <label for="new-type">Type Name:</label>
                     <input type="text" id="new-type" required placeholder="e.g., Groceries, Fuel, Entertainment">
                 </div>
-                <button type="submit" class="btn">Add Type</button>
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #10b981, #059669);">Add Type</button>
             </form>
         </div>
     </div>
+
+    <!-- Edit Type Modal -->
+        <div id="edit-type-modal" class="modal">
+            <div class="modal-content">
+                <button class="close-modal" onclick="closeEditTypeModal()">&times;</button>
+                <h3 style="margin-bottom: 1.5rem; color: #374151;">Edit Expense Type</h3>
+                <div id="edit-type-alert"></div>
+                <form id="edit-type-form">
+                    <div class="form-group">
+                        <label for="edit-type-select">Select Type to Edit:</label>
+                        <select id="edit-type-select" required onchange="populateEditField()">
+                            <option value="">Select Type</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-type-name">New Type Name:</label>
+                        <input type="text" id="edit-type-name" required placeholder="Enter new type name">
+                    </div>
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, #667eea, #764ba2);">Update Type</button>
+                </form>
+            </div>
+        </div>
 
     <!-- Budget Setting Modal -->
     <div id="budget-modal" class="modal">
@@ -2036,7 +2082,7 @@
             document.getElementById('user-email').textContent = currentUser.email;
             document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
 
-            // Check for URL parameters (amount from SMS automation)  
+            // Check for URL parameters (amount from SMS automation)
             const urlParams = new URLSearchParams(window.location.search);
             const prefilledAmount = urlParams.get('amount');
             if (prefilledAmount && !isNaN(prefilledAmount)) {
@@ -2048,6 +2094,7 @@
 
             // Load budget first, then other data
             await loadUserBudget();
+            updateBudgetHeader();
             loadUserTypes();
             await loadExpenses();
             await updateStatistics();
@@ -2441,6 +2488,17 @@
             }
         }
 
+        function getCurrentMonthName() {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+            return months[new Date().getMonth()];
+        }
+
+        function updateBudgetHeader() {
+            const monthName = getCurrentMonthName();
+            document.getElementById('budget-header').textContent = `${monthName} Budget`;
+        }
+
         // Budget management
         function setBudget() {
             const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
@@ -2808,7 +2866,8 @@
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
-            link.setAttribute('download', `expenses_${new Date().toISOString().split('T')[0]}.csv`);
+            const istDate = new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000));
+            link.setAttribute('download', `expenses_${istDate.toISOString().split('T')[0]}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -2992,6 +3051,109 @@
                 showAlert('delete-type-alert', error.message || 'Failed to delete type.', 'error');
             }
         });
+
+        function showEditTypeModal() {
+            document.getElementById('edit-type-modal').style.display = 'block';
+            loadTypesForEdit().then(types => {
+                const editSelect = document.getElementById('edit-type-select');
+                editSelect.innerHTML = '<option value="">Select Type</option>';
+                types.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type;
+                    editSelect.appendChild(option);
+                });
+
+                // Pre-select current type if one is selected
+                const currentType = document.getElementById('type').value;
+                if (currentType) {
+                    editSelect.value = currentType;
+                    document.getElementById('edit-type-name').value = currentType;
+                }
+            });
+        }
+
+        function closeEditTypeModal() {
+            document.getElementById('edit-type-modal').style.display = 'none';
+            document.getElementById('edit-type-form').reset();
+            document.getElementById('edit-type-alert').innerHTML = '';
+        }
+
+        function populateEditField() {
+            const selectedType = document.getElementById('edit-type-select').value;
+            document.getElementById('edit-type-name').value = selectedType;
+        }
+
+        // Add event listener in DOMContentLoaded:
+        document.getElementById('edit-type-form').addEventListener('submit', handleEditType);
+
+        async function handleEditType(e) {
+            e.preventDefault();
+            const oldTypeName = document.getElementById('edit-type-select').value;
+            const newTypeName = document.getElementById('edit-type-name').value.trim();
+
+            if (!oldTypeName) {
+                showAlert('edit-type-alert', 'Please select a type to edit.', 'error');
+                return;
+            }
+
+            if (!newTypeName) {
+                showAlert('edit-type-alert', 'Please enter a new type name.', 'error');
+                return;
+            }
+
+            if (oldTypeName === newTypeName) {
+                showAlert('edit-type-alert', 'No changes found. Please modify the type name.', 'error');
+                return;
+            }
+
+            try {
+                // Check if new type name already exists
+                const { data: existing } = await supabase
+                    .from('expense_types')
+                    .select('name')
+                    .ilike('name', newTypeName)
+                    .neq('name', oldTypeName);
+
+                if (existing && existing.length > 0) {
+                    showAlert('edit-type-alert', 'A type with this name already exists.', 'error');
+                    return;
+                }
+
+                // Update type in expense_types table
+                const { error: typeError } = await supabase
+                    .from('expense_types')
+                    .update({ name: newTypeName })
+                    .eq('name', oldTypeName)
+                    .eq('user_id', currentUser.id);
+
+                if (typeError) throw typeError;
+
+                // Update all expenses that use this type
+                const { error: expenseError } = await supabase
+                    .from('expenses')
+                    .update({ type: newTypeName })
+                    .eq('type', oldTypeName)
+                    .eq('user_id', currentUser.id);
+
+                if (expenseError) throw expenseError;
+
+                // Refresh UI
+                loadUserTypes();
+                document.getElementById('type').value = newTypeName;
+
+                // Refresh visualization if open
+                if (document.getElementById('visualization-modal').style.display === 'block') {
+                    loadTypesForFilter();
+                    applyDateFilter();
+                }
+
+                showAlert('edit-type-alert', 'Type updated successfully!', 'success');
+                setTimeout(() => closeEditTypeModal(), 1500);
+            } catch (error) {
+                showAlert('edit-type-alert', error.message || 'Failed to update type.', 'error');
+            }
+        }
 
         // Edit expense functions
         function toggleEditMode(expenseId) {
@@ -3252,18 +3414,30 @@
         // Update budget to use database
         async function loadUserBudget() {
             try {
+                const currentMonth = new Date().getMonth() + 1; // 1-12
+                const currentYear = new Date().getFullYear();
+
                 const { data, error } = await supabase
                     .from('user_budgets')
-                    .select('monthly_budget')
+                    .select('monthly_budget, budget_month, budget_year')
                     .eq('user_id', currentUser.id)
                     .single();
 
                 if (error && error.code !== 'PGRST116') throw error;
 
-                monthlyBudget = data ? data.monthly_budget : 0;
+                // If no budget exists or it's from a different month, reset to 0
+                if (!data || data.budget_month !== currentMonth || data.budget_year !== currentYear) {
+                    monthlyBudget = 0;
+                    // Update header to show current month
+                    updateBudgetHeader();
+                } else {
+                    monthlyBudget = data.monthly_budget;
+                    updateBudgetHeader();
+                }
             } catch (error) {
                 console.error('Failed to load budget:', error);
                 monthlyBudget = 0;
+                updateBudgetHeader();
             }
         }
 
@@ -3271,13 +3445,17 @@
         document.getElementById('budget-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const newBudget = parseFloat(document.getElementById('budget-amount').value);
+            const currentMonth = new Date().getMonth() + 1; // 1-12
+            const currentYear = new Date().getFullYear();
 
             try {
                 const { error } = await supabase
                     .from('user_budgets')
                     .upsert([{
                         user_id: currentUser.id,
-                        monthly_budget: newBudget
+                        monthly_budget: newBudget,
+                        budget_month: currentMonth,
+                        budget_year: currentYear
                     }], { onConflict: 'user_id' });
 
                 if (error) throw error;
@@ -3285,10 +3463,10 @@
                 monthlyBudget = newBudget;
                 budgetWarningShown = false;
                 updateBudgetDisplay();
-                // Update button text
+                updateBudgetHeader();
                 document.querySelector('.budget-tracker h3 + .btn').textContent = 'Update Budget';
                 closeBudgetModal();
-                showNotification('Budget updated successfully!', 'success');
+                showNotification(`${getCurrentMonthName()} budget updated successfully!`, 'success');
             } catch (error) {
                 showNotification('Failed to update budget: ' + error.message, 'error');
             }
@@ -3514,6 +3692,10 @@
             if (event.target === document.getElementById('delete-type-modal')) {
                 closeDeleteTypeModal();
             }
+            if (event.target === document.getElementById('edit-type-modal')) {
+                closeEditTypeModal();
+            }
+
         }
 
         function toggleFormBilling() {
