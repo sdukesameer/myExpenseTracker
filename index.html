@@ -1569,6 +1569,7 @@
         let currentUser = null;
         let currentChart = null;
         let filteredExpenses = [];
+        let budgetWarningShown = false;
         let isPasswordResetFlow = false;
         let monthlyBudget = 0; // Remove localStorage.getItem part
 
@@ -2262,6 +2263,7 @@
                 document.getElementById('form-billed-toggle').classList.remove('active');
                 updateDateDisplay();
                 loadExpenses();
+                budgetWarningShown = false;
                 updateBudgetDisplay();
                 updateStatistics();
                 showNotification('Expense added successfully!', 'success');
@@ -2469,14 +2471,15 @@
 
             const budgetUsedPercentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
 
-            let budgetWarningShown = false;
-
-            if (percentage >= 90 && percentage < 100 && !budgetWarningShown) {
-                showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
-                budgetWarningShown = true;
-            } else if (percentage >= 100 && !budgetWarningShown) {
-                showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
-                budgetWarningShown = true;
+            if (budgetUsedPercentage >= 100) {
+                remainingElement.style.color = '#ef4444'; // Red
+                remainingElement.style.fontWeight = '600';
+            } else if (budgetUsedPercentage >= 90) {
+                remainingElement.style.color = '#f59e0b'; // Yellow/Orange
+                remainingElement.style.fontWeight = '600';
+            } else {
+                remainingElement.style.color = '';
+                remainingElement.style.fontWeight = '';
             }
 
             document.getElementById('budget-total').textContent = `Budget: ₹${monthlyBudget.toFixed(2)}`;
@@ -2488,10 +2491,14 @@
             progressBar.classList.toggle('over-budget', percentage > 100);
 
             // Show warnings with appropriate colors
-            if (percentage >= 90 && percentage < 100) {
-                showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
-            } else if (percentage >= 100) {
-                showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
+            if (!budgetWarningShown) {
+                if (percentage >= 90 && percentage < 100) {
+                    showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
+                    budgetWarningShown = true;
+                } else if (percentage >= 100) {
+                    showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
+                    budgetWarningShown = true;
+                }
             }
         }
 
@@ -3276,6 +3283,7 @@
                 if (error) throw error;
 
                 monthlyBudget = newBudget;
+                budgetWarningShown = false;
                 updateBudgetDisplay();
                 // Update button text
                 document.querySelector('.budget-tracker h3 + .btn').textContent = 'Update Budget';
