@@ -2469,12 +2469,14 @@
 
             const budgetUsedPercentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
 
-            if (budgetUsedPercentage >= 90) {
-                remainingElement.style.color = '#ef4444';
-                remainingElement.style.fontWeight = '600';
-            } else {
-                remainingElement.style.color = '';
-                remainingElement.style.fontWeight = '';
+            let budgetWarningShown = false;
+
+            if (percentage >= 90 && percentage < 100 && !budgetWarningShown) {
+                showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
+                budgetWarningShown = true;
+            } else if (percentage >= 100 && !budgetWarningShown) {
+                showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
+                budgetWarningShown = true;
             }
 
             document.getElementById('budget-total').textContent = `Budget: ₹${monthlyBudget.toFixed(2)}`;
