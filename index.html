@@ -681,6 +681,19 @@
             color: #f9fafb !important;
         }
 
+        .dark-mode .expense-form h3,
+        .dark-mode .expenses-header h3,
+        .dark-mode #visualization-modal h3,
+        .dark-mode #visualization-modal h4,
+        .dark-mode .billed-toggle::before,
+        .dark-mode .billed-toggle.active::before {
+            color: #f9fafb !important;
+        }
+        
+        .dark-mode .expense-list-container h4 {
+            color: #f9fafb !important;
+        }
+
         .save-changes-btn {
             background: linear-gradient(135deg, #10b981, #059669);
             color: white;
@@ -2578,7 +2591,7 @@
 
             if (filteredExpenses.length === 0) {
                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                ctx.fillStyle = '#9ca3af';
+                ctx.fillStyle = document.body.classList.contains('dark-mode') ? '#f9fafb' : '#9ca3af';
                 ctx.font = '16px Inter';
                 ctx.textAlign = 'center';
                 ctx.fillText('No expenses found for the selected date range', ctx.canvas.width/2, ctx.canvas.height/2);
