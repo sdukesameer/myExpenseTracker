@@ -1762,6 +1762,7 @@
             document.getElementById('add-type-form').addEventListener('submit', handleAddType);
             document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
             document.getElementById('edit-profile-form').addEventListener('submit', handleEditProfile);
+            document.getElementById('budget-form').addEventListener('submit', handleBudgetSubmit);
 
             updateDateDisplay();
         });
@@ -2025,7 +2026,7 @@
         async function logout() {
             try {
                 // Sign out with global scope to terminate all sessions
-                await supabase.auth.signOut();
+                const { error } = await supabase.auth.signOut();
 
                 if (error) {
                     console.error('Logout error:', error);
@@ -2098,7 +2099,7 @@
             loadUserTypes();
             await loadExpenses();
             await updateStatistics();
-            updateBudgetDisplay();
+            await updateBudgetDisplay();
 
             // Update budget button text after budget is loaded
             setTimeout(() => {
@@ -2311,8 +2312,8 @@
                 updateDateDisplay();
                 loadExpenses();
                 budgetWarningShown = false;
-                updateBudgetDisplay();
-                updateStatistics();
+                await updateStatistics();
+                await updateBudgetDisplay();
                 showNotification('Expense added successfully!', 'success');
             } catch (error) {
                 showNotification('Failed to add expense: ' + error.message, 'error');
@@ -2354,23 +2355,6 @@
             }
         }
 
-        async function deleteExpense(id) {
-            if (confirm('Are you sure you want to delete this expense?')) {
-                try {
-                    const { error } = await supabase
-                        .from('expenses')
-                        .delete()
-                        .eq('id', id);
-
-                    if (error) throw error;
-
-                    loadExpenses();
-                    updateStatistics();
-                } catch (error) {
-                    alert('Failed to delete expense: ' + error.message);
-                }
-            }
-        }
 
         async function deleteFilteredExpense(id) {
             if (confirm('Are you sure you want to delete this expense?')) {
@@ -2386,10 +2370,11 @@
                     filteredExpenses = filteredExpenses.filter(expense => expense.id !== id);
 
                     // Refresh displays
-                    showExpenseList();
+                    await showExpenseList();
                     updateChart(currentChart ? currentChart.config.type : 'pie');
-                    loadExpenses();
-                    updateStatistics();
+                    await loadExpenses();
+                    await updateStatistics();
+                    await updateBudgetDisplay();
                     showNotification('Expense deleted successfully!', 'success');
                 } catch (error) {
                     showNotification('Failed to delete expense: ' + error.message, 'error');
@@ -2533,7 +2518,7 @@
                 remainingElement.style.color = '#ef4444'; // Red
                 remainingElement.style.fontWeight = '600';
             } else if (budgetUsedPercentage >= 90) {
-                remainingElement.style.color = '#f59e0b'; // Yellow/Orange
+                remainingElement.style.color = '#f56a20'; // Yellow/Orange
                 remainingElement.style.fontWeight = '600';
             } else {
                 remainingElement.style.color = '';
@@ -2850,17 +2835,42 @@
                 return;
             }
 
+            // Get date range for budget info
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            // Determine if we should show budget (only for current month exports)
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+            const startMonth = startDate ? new Date(startDate).getMonth() + 1 : null;
+            const startYear = startDate ? new Date(startDate).getFullYear() : null;
+            const isCurrentMonthExport = startMonth === currentMonth && startYear === currentYear;
+
             const headers = ['Date', 'Type', 'Amount', 'Note', 'Billed'];
-            const csvContent = [
-                headers.join(','),
-                ...filteredExpenses.map(expense => [
-                    expense.date,
-                    `"${expense.type}"`,
-                    expense.amount,
-                    `"${expense.note || ''}"`,
-                    expense.billed ? 'Yes' : 'No'
-                ].join(','))
-            ].join('\n');
+            const rows = filteredExpenses.map(expense => [
+                expense.date,
+                `"${expense.type}"`,
+                expense.amount,
+                `"${expense.note || ''}"`,
+                expense.billed ? 'Yes' : 'No'
+            ]);
+
+            // Calculate total
+            const total = filteredExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+
+            // Add total row
+            rows.push(['', '', '', '', '']);
+            rows.push(['', '', 'TOTAL:', `₹${total.toFixed(2)}`, '']);
+
+            // Add budget info if current month export
+            if (isCurrentMonthExport && monthlyBudget > 0) {
+                const remaining = monthlyBudget - total;
+                rows.push(['', '', '', '', '']);
+                rows.push(['', '', 'MONTHLY BUDGET:', `₹${monthlyBudget.toFixed(2)}`, '']);
+                rows.push(['', '', 'REMAINING:', `₹${remaining.toFixed(2)}`, '']);
+            }
+
+            const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
@@ -3402,8 +3412,9 @@
 
                 // Refresh displays
                 applyDateFilter();
-                loadExpenses();
-                updateStatistics();
+                await loadExpenses();
+                await updateStatistics();
+                await updateBudgetDisplay();
 
                 showNotification('Changes saved successfully!', 'success');
             } catch (error) {
