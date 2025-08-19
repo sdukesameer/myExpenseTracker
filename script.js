@@ -151,7 +151,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('add-type-form').addEventListener('submit', handleAddType);
     document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
     document.getElementById('edit-profile-form').addEventListener('submit', handleEditProfile);
-    document.getElementById('note').addEventListener('input', function() {this.style.borderColor = '';});
     updateDateDisplay();
 });
 
@@ -675,8 +674,7 @@ async function handleAddExpense(e) {
     }
 
     if (!note) {
-        document.getElementById('note').style.borderColor = '#ef4444';
-        document.getElementById('note').focus();
+       showNotification('Please enter a desciption/summary', 'error'); 
         return;
     }
 
