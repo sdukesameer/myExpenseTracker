@@ -1,13 +1,13 @@
 [build]
   publish = "."
   command = """
-    # Create a temporary copy of index.html
-    cp index.html index_temp.html && \
+    # Create a temporary copy of script.js
+    cp script.js script_temp.js && \
     # Replace environment variables
-    sed -i 's|%VITE_SUPABASE_URL%|'\"${VITE_SUPABASE_URL}\"'|g' index_temp.html && \
-    sed -i 's|%VITE_SUPABASE_ANON_KEY%|'\"${VITE_SUPABASE_ANON_KEY}\"'|g' index_temp.html && \
-    # Move back to index.html
-    mv index_temp.html index.html
+    sed -i 's|%VITE_SUPABASE_URL%|'\"${VITE_SUPABASE_URL}\"'|g' script_temp.js && \
+    sed -i 's|%VITE_SUPABASE_ANON_KEY%|'\"${VITE_SUPABASE_ANON_KEY}\"'|g' script_temp.js && \
+    # Move back to script.js
+    mv script_temp.js script.js
   """
 
 [build.environment]
