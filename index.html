@@ -1377,12 +1377,29 @@
                     <h3 id="budget-header">Monthly Budget</h3>
                     <button class="btn btn-small" onclick="setBudget()">Set Budget</button>
                 </div>
-                <div class="budget-progress">
-                    <div class="budget-progress-bar" id="budget-progress-bar" style="width: 0%"></div>
+
+                <!-- Billed Budget -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: #2d3436;">Billed Budget</h4>
+                    <div class="budget-progress">
+                        <div class="budget-progress-bar" id="billed-budget-progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span id="billed-budget-remaining">Billed Remaining: ₹0</span>
+                        <span id="billed-budget-total">Billed Budget: ₹0</span>
+                    </div>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
-                    <span id="budget-remaining">Remaining: ₹0</span>
-                    <span id="budget-total">Budget: ₹0</span>
+
+                <!-- Unbilled Budget -->
+                <div>
+                    <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: #2d3436;">Unbilled Budget</h4>
+                    <div class="budget-progress">
+                        <div class="budget-progress-bar" id="unbilled-budget-progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span id="unbilled-budget-remaining">Unbilled Remaining: ₹0</span>
+                        <span id="unbilled-budget-total">Unbilled Budget: ₹0</span>
+                    </div>
                 </div>
             </div>
 
@@ -1531,8 +1548,12 @@
 
             <form id="budget-form">
                 <div class="form-group">
-                    <label for="budget-amount">Monthly Budget Amount:</label>
-                    <input type="number" id="budget-amount" step="0.01" required placeholder="Enter your monthly budget">
+                    <label for="billed-budget-amount">Monthly Billed Budget Amount:</label>
+                    <input type="number" id="billed-budget-amount" step="0.01" required placeholder="Enter your monthly billed budget">
+                </div>
+                <div class="form-group">
+                    <label for="unbilled-budget-amount">Monthly Unbilled Budget Amount:</label>
+                    <input type="number" id="unbilled-budget-amount" step="0.01" required placeholder="Enter your monthly unbilled budget">
                 </div>
                 <button type="submit" class="btn">Set Budget</button>
             </form>
@@ -1615,9 +1636,10 @@
         let currentUser = null;
         let currentChart = null;
         let filteredExpenses = [];
-        let budgetWarningShown = false;
+        let budgetWarningShown = { billed: false, unbilled: false };
         let isPasswordResetFlow = false;
-        let monthlyBudget = 0; // Remove localStorage.getItem part
+        let monthlyBilledBudget = 0;
+        let monthlyUnbilledBudget = 0;
 
         // Initialize Supabase - FIXED: Remove import.meta usage
         const supabaseUrl = '%VITE_SUPABASE_URL%';
@@ -2103,7 +2125,7 @@
 
             // Update budget button text after budget is loaded
             setTimeout(() => {
-                const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
+                const budgetText = (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0) ? 'Update Budget' : 'Set Budget';
                 const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
                 if (budgetBtn) budgetBtn.textContent = budgetText;
             }, 100);
@@ -2311,7 +2333,7 @@
                 document.getElementById('form-billed-toggle').classList.remove('active');
                 updateDateDisplay();
                 loadExpenses();
-                budgetWarningShown = false;
+                budgetWarningShown = { billed: false, unbilled: false };
                 await updateStatistics();
                 await updateBudgetDisplay();
                 showNotification('Expense added successfully!', 'success');
@@ -2486,10 +2508,11 @@
 
         // Budget management
         function setBudget() {
-            const budgetText = monthlyBudget > 0 ? 'Update Budget' : 'Set Budget';
+            const budgetText = (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0) ? 'Update Budget' : 'Set Budget';
             document.querySelector('.budget-tracker h3 + .btn').textContent = budgetText;
             document.getElementById('budget-modal').style.display = 'block';
-            document.getElementById('budget-amount').value = monthlyBudget || '';
+            document.getElementById('billed-budget-amount').value = monthlyBilledBudget || '';
+            document.getElementById('unbilled-budget-amount').value = monthlyUnbilledBudget || '';
         }
 
         function closeBudgetModal() {
@@ -2499,49 +2522,75 @@
         function updateBudgetDisplay() {
             if (!currentUser) return;
 
-            let monthlySpent = 0;
-            const monthlyExpensesElement = document.getElementById('monthly-expenses');
-            if (monthlyExpensesElement) {
-                monthlySpent = parseFloat(monthlyExpensesElement.textContent.replace('₹', '')) || 0;
-            }
+            // Get monthly billed and unbilled expenses
+            const billedExpensesElement = document.getElementById('billed-expenses');
+            const unbilledExpensesElement = document.getElementById('unbilled-expenses');
 
-            const remaining = monthlyBudget - monthlySpent;
-            const remainingElement = document.getElementById('budget-remaining');
+            const monthlyBilledSpent = parseFloat(billedExpensesElement.textContent.replace('₹', '')) || 0;
+            const monthlyUnbilledSpent = parseFloat(unbilledExpensesElement.textContent.replace('₹', '')) || 0;
 
-            const remainingPercentage = monthlyBudget > 0 ? ((remaining / monthlyBudget) * 100) : 0;
-            const percentageText = monthlyBudget > 0 ? ` (${Math.max(0, remainingPercentage).toFixed(0)}%)` : '';
-            remainingElement.textContent = `Remaining: ₹${remaining.toFixed(2)}${percentageText}`;
+            // Billed Budget Display
+            const billedRemaining = monthlyBilledBudget - monthlyBilledSpent;
+            const billedRemainingElement = document.getElementById('billed-budget-remaining');
+            const billedPercentage = monthlyBilledBudget > 0 ? ((billedRemaining / monthlyBilledBudget) * 100) : 0;
+            const billedPercentageText = monthlyBilledBudget > 0 ? ` (${Math.max(0, billedPercentage).toFixed(0)}%)` : '';
 
-            const budgetUsedPercentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
+            billedRemainingElement.textContent = `Billed Remaining: ₹${billedRemaining.toFixed(2)}${billedPercentageText}`;
+            document.getElementById('billed-budget-total').textContent = `Billed Budget: ₹${monthlyBilledBudget.toFixed(2)}`;
 
-            if (budgetUsedPercentage >= 100) {
-                remainingElement.style.color = '#ef4444'; // Red
-                remainingElement.style.fontWeight = '600';
-            } else if (budgetUsedPercentage >= 90) {
-                remainingElement.style.color = '#f56a20'; // Yellow/Orange
-                remainingElement.style.fontWeight = '600';
-            } else {
-                remainingElement.style.color = '';
-                remainingElement.style.fontWeight = '';
-            }
+            const billedUsedPercentage = monthlyBilledBudget > 0 ? (monthlyBilledSpent / monthlyBilledBudget) * 100 : 0;
+            const billedProgressBar = document.getElementById('billed-budget-progress-bar');
+            billedProgressBar.style.width = `${Math.min(billedUsedPercentage, 100)}%`;
+            billedProgressBar.classList.toggle('over-budget', billedUsedPercentage > 100);
 
-            document.getElementById('budget-total').textContent = `Budget: ₹${monthlyBudget.toFixed(2)}`;
+            // Unbilled Budget Display
+            const unbilledRemaining = monthlyUnbilledBudget - monthlyUnbilledSpent;
+            const unbilledRemainingElement = document.getElementById('unbilled-budget-remaining');
+            const unbilledPercentage = monthlyUnbilledBudget > 0 ? ((unbilledRemaining / monthlyUnbilledBudget) * 100) : 0;
+            const unbilledPercentageText = monthlyUnbilledBudget > 0 ? ` (${Math.max(0, unbilledPercentage).toFixed(0)}%)` : '';
 
-            const progressBar = document.getElementById('budget-progress-bar');
-            const percentage = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
+            unbilledRemainingElement.textContent = `Unbilled Remaining: ₹${unbilledRemaining.toFixed(2)}${unbilledPercentageText}`;
+            document.getElementById('unbilled-budget-total').textContent = `Unbilled Budget: ₹${monthlyUnbilledBudget.toFixed(2)}`;
 
-            progressBar.style.width = `${Math.min(percentage, 100)}%`;
-            progressBar.classList.toggle('over-budget', percentage > 100);
+            const unbilledUsedPercentage = monthlyUnbilledBudget > 0 ? (monthlyUnbilledSpent / monthlyUnbilledBudget) * 100 : 0;
+            const unbilledProgressBar = document.getElementById('unbilled-budget-progress-bar');
+            unbilledProgressBar.style.width = `${Math.min(unbilledUsedPercentage, 100)}%`;
+            unbilledProgressBar.classList.toggle('over-budget', unbilledUsedPercentage > 100);
 
-            // Show warnings with appropriate colors
-            if (!budgetWarningShown) {
-                if (percentage >= 90 && percentage < 100) {
-                    showNotification('Warning: You\'ve used 90% of your budget!', 'warning');
-                    budgetWarningShown = true;
-                } else if (percentage >= 100) {
-                    showNotification('Alert: You\'ve exceeded your monthly budget!', 'error');
-                    budgetWarningShown = true;
+            // Color coding for remaining amounts
+            [
+                { element: billedRemainingElement, percentage: billedUsedPercentage },
+                { element: unbilledRemainingElement, percentage: unbilledUsedPercentage }
+            ].forEach(({ element, percentage }) => {
+                if (percentage >= 100) {
+                    element.style.color = '#ef4444';
+                    element.style.fontWeight = '600';
+                } else if (percentage >= 90) {
+                    element.style.color = '#f56a20';
+                    element.style.fontWeight = '600';
+                } else {
+                    element.style.color = '';
+                    element.style.fontWeight = '';
                 }
+            });
+
+            // Show warnings
+            if (!budgetWarningShown.billed && billedUsedPercentage >= 90 && monthlyBilledBudget > 0) {
+                if (billedUsedPercentage >= 100) {
+                    showNotification('Alert: You\'ve exceeded your monthly billed budget!', 'error');
+                } else {
+                    showNotification('Warning: You\'ve used 90% of your billed budget!', 'warning');
+                }
+                budgetWarningShown.billed = true;
+            }
+
+            if (!budgetWarningShown.unbilled && unbilledUsedPercentage >= 90 && monthlyUnbilledBudget > 0) {
+                if (unbilledUsedPercentage >= 100) {
+                    showNotification('Alert: You\'ve exceeded your monthly unbilled budget!', 'error');
+                } else {
+                    showNotification('Warning: You\'ve used 90% of your unbilled budget!', 'warning');
+                }
+                budgetWarningShown.unbilled = true;
             }
         }
 
@@ -3430,7 +3479,7 @@
 
                 const { data, error } = await supabase
                     .from('user_budgets')
-                    .select('monthly_budget, budget_month, budget_year')
+                    .select('monthly_billed_budget, monthly_unbilled_budget, budget_month, budget_year')
                     .eq('user_id', currentUser.id)
                     .single();
 
@@ -3438,16 +3487,18 @@
 
                 // If no budget exists or it's from a different month, reset to 0
                 if (!data || data.budget_month !== currentMonth || data.budget_year !== currentYear) {
-                    monthlyBudget = 0;
-                    // Update header to show current month
+                    monthlyBilledBudget = 0;
+                    monthlyUnbilledBudget = 0;
                     updateBudgetHeader();
                 } else {
-                    monthlyBudget = data.monthly_budget;
+                    monthlyBilledBudget = data.monthly_billed_budget || 0;
+                    monthlyUnbilledBudget = data.monthly_unbilled_budget || 0;
                     updateBudgetHeader();
                 }
             } catch (error) {
                 console.error('Failed to load budget:', error);
-                monthlyBudget = 0;
+                monthlyBilledBudget = 0;
+                monthlyUnbilledBudget = 0;
                 updateBudgetHeader();
             }
         }
@@ -3455,8 +3506,9 @@
         // Update setBudget function
         document.getElementById('budget-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const newBudget = parseFloat(document.getElementById('budget-amount').value);
-            const currentMonth = new Date().getMonth() + 1; // 1-12
+            const newBilledBudget = parseFloat(document.getElementById('billed-budget-amount').value);
+            const newUnbilledBudget = parseFloat(document.getElementById('unbilled-budget-amount').value);
+            const currentMonth = new Date().getMonth() + 1;
             const currentYear = new Date().getFullYear();
 
             try {
@@ -3464,20 +3516,25 @@
                     .from('user_budgets')
                     .upsert([{
                         user_id: currentUser.id,
-                        monthly_budget: newBudget,
+                        monthly_billed_budget: newBilledBudget,
+                        monthly_unbilled_budget: newUnbilledBudget,
                         budget_month: currentMonth,
                         budget_year: currentYear
                     }], { onConflict: 'user_id' });
 
                 if (error) throw error;
 
-                monthlyBudget = newBudget;
-                budgetWarningShown = false;
+                monthlyBilledBudget = newBilledBudget;
+                monthlyUnbilledBudget = newUnbilledBudget;
+                budgetWarningShown = { billed: false, unbilled: false };
                 updateBudgetDisplay();
                 updateBudgetHeader();
-                document.querySelector('.budget-tracker h3 + .btn').textContent = 'Update Budget';
+
+                const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
+                budgetBtn.textContent = 'Update Budget';
+
                 closeBudgetModal();
-                showNotification(`${getCurrentMonthName()} budget updated successfully!`, 'success');
+                showNotification(`${getCurrentMonthName()} budgets updated successfully!`, 'success');
             } catch (error) {
                 showNotification('Failed to update budget: ' + error.message, 'error');
             }
