@@ -675,6 +675,11 @@ async function handleAddExpense(e) {
         return;
     }
 
+    if (!note) {
+        showNotification('Please add a description for the expense', 'error');
+        return;
+    }
+
     if (note.length > 500) {
         showNotification('Note is too long (max 500 characters)', 'error');
         return;
@@ -1280,11 +1285,18 @@ async function exportToCSV() {
     rows.push(['', '', 'TOTAL:', `₹${total.toFixed(2)}`, '']);
 
     // Add budget info if current month export
-    if (isCurrentMonthExport && monthlyBudget > 0) {
-        const remaining = monthlyBudget - total;
+    if (isCurrentMonthExport && (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0)) {
+        const billedSpent = filteredExpenses.filter(e => e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        const unbilledSpent = filteredExpenses.filter(e => !e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        
         rows.push(['', '', '', '', '']);
-        rows.push(['', '', 'MONTHLY BUDGET:', `₹${monthlyBudget.toFixed(2)}`, '']);
-        rows.push(['', '', 'REMAINING:', `₹${remaining.toFixed(2)}`, '']);
+        rows.push(['', '', 'BILLED BUDGET:', `₹${monthlyBilledBudget.toFixed(2)}`, '']);
+        rows.push(['', '', 'BILLED SPENT:', `₹${billedSpent.toFixed(2)}`, '']);
+        rows.push(['', '', 'BILLED REMAINING:', `₹${(monthlyBilledBudget - billedSpent).toFixed(2)}`, '']);
+        rows.push(['', '', '', '', '']);
+        rows.push(['', '', 'UNBILLED BUDGET:', `₹${monthlyUnbilledBudget.toFixed(2)}`, '']);
+        rows.push(['', '', 'UNBILLED SPENT:', `₹${unbilledSpent.toFixed(2)}`, '']);
+        rows.push(['', '', 'UNBILLED REMAINING:', `₹${(monthlyUnbilledBudget - unbilledSpent).toFixed(2)}`, '']);
     }
 
     const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
