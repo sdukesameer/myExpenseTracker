@@ -476,7 +476,8 @@ async function showDashboard() {
     const urlParams = new URLSearchParams(window.location.search);
     const prefilledAmount = urlParams.get('amount');
     if (prefilledAmount && !isNaN(prefilledAmount)) {
-        document.getElementById('amount').value = prefilledAmount;
+        const ceiledAmount = Math.ceil(parseFloat(prefilledAmount));
+        document.getElementById('amount').value = ceiledAmount;
         document.getElementById('amount').focus(); // Optional: focus the field
         // Clear URL parameter
         window.history.replaceState({}, document.title, window.location.pathname);
