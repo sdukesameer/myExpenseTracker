@@ -1886,6 +1886,13 @@ document.getElementById('budget-form').addEventListener('submit', async function
     e.preventDefault();
     const newBilledBudget = parseFloat(document.getElementById('billed-budget-amount').value);
     const newUnbilledBudget = parseFloat(document.getElementById('unbilled-budget-amount').value);
+    
+    // Check if values changed
+    if (newBilledBudget === monthlyBilledBudget && newUnbilledBudget === monthlyUnbilledBudget) {
+        showNotification('Please make change to update the budgets.', 'error');
+        return;
+    }
+    
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
 
