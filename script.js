@@ -904,7 +904,7 @@ function updateBudgetDisplay() {
     const billedRemaining = monthlyBilledBudget - monthlyBilledSpent;
     const billedRemainingElement = document.getElementById('billed-budget-remaining');
     const billedPercentage = monthlyBilledBudget > 0 ? ((billedRemaining / monthlyBilledBudget) * 100) : 0;
-    const billedPercentageText = monthlyBilledBudget > 0 ? ` (${Math.max(0, billedPercentage).toFixed(0)}%)` : '';
+    const billedPercentageText = monthlyBilledBudget > 0 ? ` (${billedPercentage.toFixed(0)}%)` : '';
 
     billedRemainingElement.textContent = `Billed Remaining: ₹${billedRemaining.toFixed(2)}${billedPercentageText}`;
     document.getElementById('billed-budget-total').textContent = `Billed Budget: ₹${monthlyBilledBudget.toFixed(2)}`;
@@ -918,7 +918,7 @@ function updateBudgetDisplay() {
     const unbilledRemaining = monthlyUnbilledBudget - monthlyUnbilledSpent;
     const unbilledRemainingElement = document.getElementById('unbilled-budget-remaining');
     const unbilledPercentage = monthlyUnbilledBudget > 0 ? ((unbilledRemaining / monthlyUnbilledBudget) * 100) : 0;
-    const unbilledPercentageText = monthlyUnbilledBudget > 0 ? ` (${Math.max(0, unbilledPercentage).toFixed(0)}%)` : '';
+    const unbilledPercentageText = monthlyUnbilledBudget > 0 ? ` (${unbilledPercentage.toFixed(0)}%)` : '';
 
     unbilledRemainingElement.textContent = `Unbilled Remaining: ₹${unbilledRemaining.toFixed(2)}${unbilledPercentageText}`;
     document.getElementById('unbilled-budget-total').textContent = `Unbilled Budget: ₹${monthlyUnbilledBudget.toFixed(2)}`;
