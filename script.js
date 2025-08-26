@@ -1136,6 +1136,17 @@ function updateChart(chartType) {
                         }
                     }
                 },
+                elements: {
+                    point: {
+                        backgroundColor: function(context) {
+                            const colors = [
+                                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe',
+                                '#43e97b', '#38f9d7', '#ffecd2', '#fcb69f', '#a8edea', '#fed6e3'
+                            ];
+                            return colors[context.dataIndex % colors.length];
+                        }
+                    }
+                },
                 scales: {
                     x: { title: { display: true, text: 'Number of Transactions' } },
                     y: {
@@ -1162,9 +1173,9 @@ function updateChart(chartType) {
                     tooltip: {
                         callbacks: {
                             label: function (context) {
-                                const value = context.parsed || context.parsed.y || context.parsed.x || context.parsed;
-                                const actualValue = typeof value === 'object' ? (value.y || value.x || value) : value;
-                                return context.label + ': ₹' + actualValue.toFixed(2);
+                                // For horizontal bar charts, use context.parsed.x, for others use context.parsed.y
+                                const value = isHorizontal ? context.parsed.x : (context.parsed.y || context.parsed);
+                                return context.label + ': ₹' + value.toFixed(2);
                             }
                         }
                     }
@@ -1259,7 +1270,7 @@ function prepareBubbleChartData() {
     const bubbleData = Object.keys(typeData).map((type, index) => ({
         x: typeData[type].count,
         y: typeData[type].total,
-        r: Math.sqrt(typeData[type].total) / 10 + 5, // Bubble size based on amount
+        r: Math.max(Math.sqrt(typeData[type].total) * 0.5, 8), // Better bubble sizing
         label: type
     }));
 
