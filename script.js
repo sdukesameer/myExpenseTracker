@@ -1,4 +1,3 @@
-
 // Global variables
 let currentUser = null;
 let currentChart = null;
@@ -661,6 +660,7 @@ async function handleAddExpense(e) {
     const amount = parseFloat(document.getElementById('amount').value);
     const type = document.getElementById('type').value;
     const note = document.getElementById('note').value.trim();
+    const isBilled = document.getElementById('form-billed-toggle').classList.contains('active');
 
     // Validation
     if (!amount || amount <= 0 || amount > 1000000) {
@@ -674,7 +674,7 @@ async function handleAddExpense(e) {
     }
 
     if (!note) {
-       showNotification('Please enter a desciption/summary', 'error'); 
+        showNotification('Please enter a desciption/summary', 'error');
         return;
     }
 
@@ -689,7 +689,7 @@ async function handleAddExpense(e) {
         date: document.getElementById('date').value,
         type: type,
         note: note,
-        billed: document.getElementById('form-billed-toggle').classList.contains('active')
+        billed: isBilled
     };
 
     try {
@@ -704,9 +704,28 @@ async function handleAddExpense(e) {
         document.getElementById('form-billed-toggle').classList.remove('active');
         updateDateDisplay();
         loadExpenses();
-        budgetWarningShown = { billed: false, unbilled: false };
         await updateStatistics();
-        await updateBudgetDisplay();
+
+        // Get updated percentages and show relevant warning only
+        const { billedUsedPercentage, unbilledUsedPercentage } = await updateBudgetDisplay();
+
+        // Show warning only for the type of expense that was just added
+        if (isBilled && !budgetWarningShown.billed && billedUsedPercentage >= 90 && monthlyBilledBudget > 0) {
+            if (billedUsedPercentage >= 100) {
+                showNotification('Alert: You\'ve exceeded your monthly billed budget!', 'error');
+            } else {
+                showNotification(`Warning: You\'ve used ${Math.round(billedUsedPercentage)}% of your billed budget!`, 'warning');
+            }
+            budgetWarningShown.billed = true;
+        } else if (!isBilled && !budgetWarningShown.unbilled && unbilledUsedPercentage >= 90 && monthlyUnbilledBudget > 0) {
+            if (unbilledUsedPercentage >= 100) {
+                showNotification('Alert: You\'ve exceeded your monthly unbilled budget!', 'error');
+            } else {
+                showNotification(`Warning: You\'ve used ${Math.round(unbilledUsedPercentage)}% of your unbilled budget!`, 'warning');
+            }
+            budgetWarningShown.unbilled = true;
+        }
+
         showNotification('Expense added successfully!', 'success');
     } catch (error) {
         showNotification('Failed to add expense: ' + error.message, 'error');
@@ -945,24 +964,7 @@ function updateBudgetDisplay() {
         }
     });
 
-    // Show warnings
-    if (!budgetWarningShown.billed && billedUsedPercentage >= 90 && monthlyBilledBudget > 0) {
-        if (billedUsedPercentage >= 100) {
-            showNotification('Alert: You\'ve exceeded your monthly billed budget!', 'error');
-        } else {
-            showNotification('Warning: You\'ve used 90% of your billed budget!', 'warning');
-        }
-        budgetWarningShown.billed = true;
-    }
-
-    if (!budgetWarningShown.unbilled && unbilledUsedPercentage >= 90 && monthlyUnbilledBudget > 0) {
-        if (unbilledUsedPercentage >= 100) {
-            showNotification('Alert: You\'ve exceeded your monthly unbilled budget!', 'error');
-        } else {
-            showNotification('Warning: You\'ve used 90% of your unbilled budget!', 'warning');
-        }
-        budgetWarningShown.unbilled = true;
-    }
+    return { billedUsedPercentage, unbilledUsedPercentage };
 }
 
 function updateDateDisplay() {
@@ -1062,14 +1064,14 @@ async function applyDateFilter() {
         if (error) throw error;
 
         filteredExpenses = data || [];
-        updateChart('pie');
+        updateChart('line');
 
         // Add expense list below chart
         showExpenseList();
     } catch (error) {
         console.error('Failed to filter expenses:', error);
         filteredExpenses = [];
-        updateChart('pie');
+        updateChart('line');
     }
 }
 
@@ -1093,7 +1095,6 @@ function updateChart(chartType) {
         return;
     }
 
-    // Prepare data based on chart type
     let chartData, chartConfig;
 
     if (chartType === 'line') {
@@ -1105,91 +1106,81 @@ function updateChart(chartType) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    title: {
-                        display: true,
-                        text: 'Expenses Over Time'
-                    },
-                    legend: {
-                        display: false
-                    }
+                    title: { display: true, text: 'Expenses Over Time' },
+                    legend: { display: false }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: {
-                            callback: function (value) {
-                                return '₹' + value.toFixed(0);
+                        ticks: { callback: function (value) { return '₹' + value.toFixed(0); } }
+                    }
+                }
+            }
+        };
+    } else if (chartType === 'bubble') {
+        chartData = prepareBubbleChartData();
+        chartConfig = {
+            type: 'bubble',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: 'Expense Types by Amount & Frequency' },
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.raw.label}: ₹${context.raw.y.toFixed(2)} (${context.raw.x} transactions)`;
                             }
                         }
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Number of Transactions' } },
+                    y: {
+                        title: { display: true, text: 'Total Amount (₹)' },
+                        ticks: { callback: function (value) { return '₹' + value.toFixed(0); } }
                     }
                 }
             }
         };
     } else {
         chartData = prepareTypeChartData();
+        const isHorizontal = chartType === 'horizontalBar';
+
         chartConfig = {
-            type: chartType,
+            type: isHorizontal ? 'bar' : chartType,
             data: chartData,
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                indexAxis: isHorizontal ? 'y' : 'x',
                 plugins: {
-                    title: {
-                        display: true,
-                        text: 'Expenses by Type'
-                    },
-                    legend: {
-                        position: 'bottom',
-                        display: chartType !== 'bar'
-                    },
+                    title: { display: true, text: 'Expenses by Type' },
+                    legend: { position: 'bottom', display: chartType === 'doughnut' },
                     tooltip: {
                         callbacks: {
                             label: function (context) {
-                                const value = context.parsed || context.parsed.y || context.parsed;
-                                const actualValue = typeof value === 'object' ? value.y || value : value;
+                                const value = context.parsed || context.parsed.y || context.parsed.x || context.parsed;
+                                const actualValue = typeof value === 'object' ? (value.y || value.x || value) : value;
                                 return context.label + ': ₹' + actualValue.toFixed(2);
                             }
                         }
+                    }
+                },
+                scales: chartType === 'doughnut' ? {} : {
+                    [isHorizontal ? 'x' : 'y']: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Amount (₹)' },
+                        ticks: { callback: function (value) { return '₹' + value.toFixed(0); } }
                     },
-                    datalabels: {
-                        display: chartType === 'bar',
-                        anchor: 'end',
-                        align: 'top',
-                        formatter: function (value) {
-                            return '₹' + value.toFixed(0);
-                        },
-                        color: '#374151',
-                        font: {
-                            weight: 'bold',
-                            size: 12
-                        }
+                    [isHorizontal ? 'y' : 'x']: {
+                        title: { display: true, text: 'Expense Types' }
                     }
                 }
             }
         };
-
-        if (chartType === 'bar') {
-            chartConfig.options.scales = {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Expense Types'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Amount (₹)'
-                    },
-                    ticks: {
-                        callback: function (value) {
-                            return '₹' + value.toFixed(0);
-                        }
-                    }
-                }
-            };
-        }
     }
 
     currentChart = new Chart(ctx, chartConfig);
@@ -1249,6 +1240,40 @@ function prepareLineChartData() {
     };
 }
 
+function prepareBubbleChartData() {
+    const typeData = {};
+    filteredExpenses.forEach(expense => {
+        if (!typeData[expense.type]) {
+            typeData[expense.type] = { total: 0, count: 0 };
+        }
+        typeData[expense.type].total += parseFloat(expense.amount);
+        typeData[expense.type].count += 1;
+    });
+
+    const colors = [
+        '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe',
+        '#43e97b', '#38f9d7', '#ffecd2', '#fcb69f', '#a8edea', '#fed6e3',
+        '#ff9a9e', '#fecfef', '#ffeaa7', '#fab1a0'
+    ];
+
+    const bubbleData = Object.keys(typeData).map((type, index) => ({
+        x: typeData[type].count,
+        y: typeData[type].total,
+        r: Math.sqrt(typeData[type].total) / 10 + 5, // Bubble size based on amount
+        label: type
+    }));
+
+    return {
+        datasets: [{
+            label: 'Expense Types',
+            data: bubbleData,
+            backgroundColor: colors.slice(0, bubbleData.length),
+            borderColor: '#ffffff',
+            borderWidth: 2
+        }]
+    };
+}
+
 async function exportToCSV() {
     if (filteredExpenses.length === 0) {
         alert('No expenses to export for the selected date range.');
@@ -1286,7 +1311,7 @@ async function exportToCSV() {
     if (isCurrentMonthExport && (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0)) {
         const billedSpent = filteredExpenses.filter(e => e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
         const unbilledSpent = filteredExpenses.filter(e => !e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
-        
+
         rows.push(['', '', '', '', '']);
         rows.push(['', '', 'BILLED BUDGET:', `₹${monthlyBilledBudget.toFixed(2)}`, '']);
         rows.push(['', '', 'BILLED SPENT:', `₹${billedSpent.toFixed(2)}`, '']);
@@ -1886,13 +1911,13 @@ document.getElementById('budget-form').addEventListener('submit', async function
     e.preventDefault();
     const newBilledBudget = parseFloat(document.getElementById('billed-budget-amount').value);
     const newUnbilledBudget = parseFloat(document.getElementById('unbilled-budget-amount').value);
-    
+
     // Check if values changed
     if (newBilledBudget === monthlyBilledBudget && newUnbilledBudget === monthlyUnbilledBudget) {
         showNotification('Please make change to update the budgets.', 'error');
         return;
     }
-    
+
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
 
