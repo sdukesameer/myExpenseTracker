@@ -2,14 +2,15 @@
 let currentUser = null;
 let currentChart = null;
 let filteredExpenses = [];
+let allExpensesCache = [];
 let budgetWarningShown = { billed: false, unbilled: false };
 let isPasswordResetFlow = false;
 let monthlyBilledBudget = 0;
 let monthlyUnbilledBudget = 0;
 
 // Initialize Supabase - FIXED: Remove import.meta usage
-const supabaseUrl = '%VITE_SUPABASE_URL%';
-const supabaseKey = '%VITE_SUPABASE_ANON_KEY%';
+const supabaseUrl = 'https://hjjpjcqzslqikopsbxwh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqanBqY3F6c2xxaWtvcHNieHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzODk3MzcsImV4cCI6MjA2OTk2NTczN30.GPU3hJwuPkgKeGRaoF6i3oFygL4sTuQXsc5RR5otLjU';
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('Supabase credentials not found. Please check environment variables.');
@@ -37,6 +38,61 @@ function handleSecureEmailLink() {
         // Redirect to the actual Supabase link
         window.location.href = actualLink;
     }
+}
+
+function sanitizeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function validateExpenseInput(amount, type, note) {
+    const errors = [];
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+        errors.push('Valid amount is required');
+    }
+    if (amount > 1000000) {
+        errors.push('Amount cannot exceed ₹10,00,000');
+    }
+    if (!type || type.trim() === '') {
+        errors.push('Expense type is required');
+    }
+    if (!note || note.trim() === '') {
+        errors.push('Description is required');
+    }
+    if (note && note.length > 500) {
+        errors.push('Description cannot exceed 500 characters');
+    }
+
+    return errors;
+}
+
+function getISTDate(date = new Date()) {
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    return new Date(date.getTime() + istOffset - (date.getTimezoneOffset() * 60 * 1000));
+}
+
+function getISTMonthBounds(year, month) {
+    // Create first day at midnight IST
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+
+    // Convert to IST strings
+    const istFirst = getISTDate(firstDay);
+    const istLast = getISTDate(lastDay);
+
+    return {
+        first: istFirst.toISOString().split('T')[0],
+        last: istLast.toISOString().split('T')[0]
+    };
+}
+
+function getCurrentMonthName() {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    return months[new Date().getMonth()];
 }
 
 // FIXED: Notification system properly scoped
@@ -79,18 +135,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // Set today's date in IST
-    const today = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-    const istDate = new Date(today.getTime() + istOffset);
-    const todayIST = istDate.toISOString().split('T')[0];
+    const istNow = getISTDate();
+    const todayIST = istNow.toISOString().split('T')[0];
+    const firstDayIST = getISTMonthBounds(istNow.getFullYear(), istNow.getMonth() + 1).first;
 
     document.getElementById('date').value = todayIST;
     document.getElementById('end-date').value = todayIST;
-
-    // Set first day of month in IST
-    const firstDayOfMonth = new Date(istDate.getFullYear(), istDate.getMonth(), 1);
-    const firstDayIST = new Date(firstDayOfMonth.getTime() + istOffset);
-    document.getElementById('start-date').value = firstDayIST.toISOString().split('T')[0];
+    document.getElementById('start-date').value = firstDayIST;
 
     handleSecureEmailLink();
     handleEmailChangeConfirmation();
@@ -548,7 +599,7 @@ async function loadTypesForEdit() {
     }
 }
 
-function createEditableElements(expenseId, expense) {
+async function createEditableElements(expenseId, expense) {
     const expenseItem = document.querySelector(`[data-id="${expenseId}"]`);
 
     // Amount input with ₹ prefix
@@ -564,11 +615,10 @@ function createEditableElements(expenseId, expense) {
     // Type select with styled dropdown
     const typeEl = expenseItem.querySelector('.expense-type');
     const originalType = typeEl.dataset.original;
-    loadTypesForEdit().then(types => {
-        typeEl.innerHTML = `<select onchange="trackExpenseChange(${expenseId})">
-                    ${types.map(type => `<option value="${type}" ${type === originalType ? 'selected' : ''}>${type}</option>`).join('')}
-                </select>`;
-    });
+    const types = await loadTypesForEdit();
+    typeEl.innerHTML = `<select onchange="trackExpenseChange(${expenseId})">
+                ${types.map(type => `<option value="${type}" ${type === originalType ? 'selected' : ''}>${type}</option>`).join('')}
+            </select>`;
 
     // Date input
     const dateEl = expenseItem.querySelector('.expense-date');
@@ -657,42 +707,47 @@ function trackExpenseChange(expenseId) {
 async function handleAddExpense(e) {
     e.preventDefault();
 
-    const amount = parseFloat(document.getElementById('amount').value);
-    const type = document.getElementById('type').value;
-    const note = document.getElementById('note').value.trim();
-    const isBilled = document.getElementById('form-billed-toggle').classList.contains('active');
-
-    // Validation
-    if (!amount || amount <= 0 || amount > 1000000) {
-        showNotification('Please enter a valid amount (1-1,000,000)', 'error');
-        return;
-    }
-
-    if (!type) {
-        showNotification('Please select an expense type', 'error');
-        return;
-    }
-
-    if (!note) {
-        showNotification('Please enter a desciption/summary', 'error');
-        return;
-    }
-
-    if (note.length > 500) {
-        showNotification('Note is too long (max 500 characters)', 'error');
-        return;
-    }
-
-    const expense = {
-        user_id: currentUser.id,
-        amount: amount,
-        date: document.getElementById('date').value,
-        type: type,
-        note: note,
-        billed: isBilled
-    };
-
     try {
+        const amount = parseFloat(document.getElementById('amount').value);
+        const type = document.getElementById('type').value;
+        const note = document.getElementById('note').value.trim();
+        const isBilled = document.getElementById('form-billed-toggle').classList.contains('active');
+
+        // Enhanced validation
+        if (!amount || amount <= 0) {
+            showNotification('Please enter a valid amount greater than 0', 'error');
+            return;
+        }
+
+        if (amount > 1000000) {
+            showNotification('Amount cannot exceed ₹10,00,000', 'error');
+            return;
+        }
+
+        if (!type) {
+            showNotification('Please select an expense type', 'error');
+            return;
+        }
+
+        if (!note) {
+            showNotification('Please enter a description', 'error');
+            return;
+        }
+
+        if (note.length > 500) {
+            showNotification('Description cannot exceed 500 characters', 'error');
+            return;
+        }
+
+        const expense = {
+            user_id: currentUser.id,
+            amount: amount,
+            date: document.getElementById('date').value,
+            type: type,
+            note: note,
+            billed: isBilled
+        };
+
         const { error } = await supabase
             .from('expenses')
             .insert([expense]);
@@ -700,35 +755,43 @@ async function handleAddExpense(e) {
         if (error) throw error;
 
         document.getElementById('expense-form').reset();
-        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = new Date().toLocaleDateString('en-CA');
         document.getElementById('form-billed-toggle').classList.remove('active');
         updateDateDisplay();
-        loadExpenses();
-        await updateStatistics();
 
-        // Get updated percentages and show relevant warning only
-        const { billedUsedPercentage, unbilledUsedPercentage } = await updateBudgetDisplay();
+        await Promise.all([
+            loadExpenses(),
+            updateStatistics(),
+            updateBudgetDisplay()
+        ]);
 
-        // Show warning only for the type of expense that was just added
-        if (isBilled && !budgetWarningShown.billed && billedUsedPercentage >= 90 && monthlyBilledBudget > 0) {
-            if (billedUsedPercentage >= 100) {
-                showNotification('Alert: You\'ve exceeded your monthly billed budget!', 'error');
-            } else {
-                showNotification(`Warning: You\'ve used ${Math.round(billedUsedPercentage)}% of your billed budget!`, 'warning');
-            }
-            budgetWarningShown.billed = true;
-        } else if (!isBilled && !budgetWarningShown.unbilled && unbilledUsedPercentage >= 90 && monthlyUnbilledBudget > 0) {
-            if (unbilledUsedPercentage >= 100) {
-                showNotification('Alert: You\'ve exceeded your monthly unbilled budget!', 'error');
-            } else {
-                showNotification(`Warning: You\'ve used ${Math.round(unbilledUsedPercentage)}% of your unbilled budget!`, 'warning');
-            }
-            budgetWarningShown.unbilled = true;
-        }
-
+        await checkBudgetWarnings();
         showNotification('Expense added successfully!', 'success');
     } catch (error) {
+        console.error('Add expense error:', error);
         showNotification('Failed to add expense: ' + error.message, 'error');
+    }
+}
+
+async function checkBudgetWarnings() {
+    const { billedUsedPercentage, unbilledUsedPercentage } = await updateBudgetDisplay();
+
+    if (!budgetWarningShown.billed && billedUsedPercentage >= 90 && monthlyBilledBudget > 0) {
+        if (billedUsedPercentage >= 100) {
+            showNotification('Alert: You\'ve exceeded your monthly billed budget!', 'error');
+        } else {
+            showNotification(`Warning: You\'ve used ${Math.round(billedUsedPercentage)}% of your billed budget!`, 'warning');
+        }
+        budgetWarningShown.billed = true;
+    }
+
+    if (!budgetWarningShown.unbilled && unbilledUsedPercentage >= 90 && monthlyUnbilledBudget > 0) {
+        if (unbilledUsedPercentage >= 100) {
+            showNotification('Alert: You\'ve exceeded your monthly unbilled budget!', 'error');
+        } else {
+            showNotification(`Warning: You\'ve used ${Math.round(unbilledUsedPercentage)}% of your unbilled budget!`, 'warning');
+        }
+        budgetWarningShown.unbilled = true;
     }
 }
 
@@ -753,7 +816,7 @@ async function loadExpenses() {
                     <div class="expense-item">
                         <div class="expense-details">
                             <div class="expense-amount">₹${expense.amount.toFixed(2)}</div>
-                            <div class="expense-note">${expense.note || 'No description'}</div>
+                            <div class="expense-note">${sanitizeHTML(expense.note) || 'No description'}</div>
                             <div class="expense-meta">
                                 <span class="expense-type">${expense.type}</span>
                                 ${expense.billed ? '<span class="billed-badge">BILLED</span>' : ''}
@@ -787,6 +850,7 @@ async function deleteFilteredExpense(id) {
             await loadExpenses();
             await updateStatistics();
             await updateBudgetDisplay();
+            await checkBudgetWarnings();
             showNotification('Expense deleted successfully!', 'success');
         } catch (error) {
             showNotification('Failed to delete expense: ' + error.message, 'error');
@@ -802,35 +866,49 @@ async function updateStatistics() {
 
         if (error) throw error;
 
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        const istNow = getISTDate();
+        const currentMonth = istNow.getMonth() + 1;
+        const currentYear = istNow.getFullYear();
+        const bounds = getISTMonthBounds(currentYear, currentMonth);
+        const firstDayOfMonth = bounds.first;
+        const lastDayOfMonth = bounds.last;
 
-        const totalExpenses = data.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+        // For last month:
+        const lastMonthBounds = currentMonth === 1 ?
+            getISTMonthBounds(currentYear - 1, 12) :
+            getISTMonthBounds(currentYear, currentMonth - 1);
+        const lastMonthFirstDay = lastMonthBounds.first;
+        const lastMonthLastDay = lastMonthBounds.last;
+
+        // Current month calculations
         const monthlyExpenses = data
-            .filter(expense => {
-                const expenseDate = new Date(expense.date);
-                return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-            })
+            .filter(expense => expense.date >= firstDayOfMonth && expense.date <= lastDayOfMonth)
             .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
-        const monthlyCount = data.filter(expense => {
-            const expenseDate = new Date(expense.date);
-            return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
-        }).length;
+        const monthlyCount = data.filter(expense =>
+            expense.date >= firstDayOfMonth && expense.date <= lastDayOfMonth
+        ).length;
 
-        const billedExpenses = data
-            .filter(expense => expense.billed)
+        const monthlyBilledExpenses = data
+            .filter(expense => expense.billed && expense.date >= firstDayOfMonth && expense.date <= lastDayOfMonth)
             .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
-        const unbilledExpenses = data
-            .filter(expense => !expense.billed)
+        const monthlyUnbilledExpenses = data
+            .filter(expense => !expense.billed && expense.date >= firstDayOfMonth && expense.date <= lastDayOfMonth)
             .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
-        document.getElementById('total-expenses').textContent = `₹${totalExpenses.toFixed(2)}`;
+        const lastMonthExpenses = data
+            .filter(expense => expense.date >= lastMonthFirstDay && expense.date <= lastMonthLastDay)
+            .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+
+        // All-time total for reference
+        const totalExpenses = data.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+
+        // Update DOM - Note: Changed labels to reflect actual data
+        document.getElementById('total-expenses').textContent = `₹${lastMonthExpenses.toFixed(2)}`;
         document.getElementById('monthly-expenses').textContent = `₹${monthlyExpenses.toFixed(2)}`;
-        document.getElementById('billed-expenses').textContent = `₹${billedExpenses.toFixed(2)}`;
-        document.getElementById('unbilled-expenses').textContent = `₹${unbilledExpenses.toFixed(2)}`;
+        document.getElementById('billed-expenses').textContent = `₹${monthlyBilledExpenses.toFixed(2)}`;
+        document.getElementById('unbilled-expenses').textContent = `₹${monthlyUnbilledExpenses.toFixed(2)}`;
         document.getElementById('expense-count').textContent = monthlyCount;
     } catch (error) {
         console.error('Failed to update statistics:', error);
@@ -885,12 +963,6 @@ async function handleAddType(e) {
     }
 }
 
-function getCurrentMonthName() {
-    const months = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-    return months[new Date().getMonth()];
-}
-
 function updateBudgetHeader() {
     const monthName = getCurrentMonthName();
     document.getElementById('budget-header').textContent = `${monthName} Budget`;
@@ -909,62 +981,86 @@ function closeBudgetModal() {
     document.getElementById('budget-modal').style.display = 'none';
 }
 
-function updateBudgetDisplay() {
+async function updateBudgetDisplay() {
     if (!currentUser) return;
 
-    // Get monthly billed and unbilled expenses
-    const billedExpensesElement = document.getElementById('billed-expenses');
-    const unbilledExpensesElement = document.getElementById('unbilled-expenses');
+    try {
+        const istNow = getISTDate();
+        const currentMonth = istNow.getMonth() + 1;
+        const currentYear = istNow.getFullYear();
+        const bounds = getISTMonthBounds(currentYear, currentMonth);
+        const firstDayOfMonth = bounds.first;
+        const lastDayOfMonth = bounds.last;
 
-    const monthlyBilledSpent = parseFloat(billedExpensesElement.textContent.replace('₹', '')) || 0;
-    const monthlyUnbilledSpent = parseFloat(unbilledExpensesElement.textContent.replace('₹', '')) || 0;
+        // Get current month expenses only
+        const { data: monthlyExpenses, error } = await supabase
+            .from('expenses')
+            .select('amount, billed')
+            .eq('user_id', currentUser.id)
+            .gte('date', firstDayOfMonth)
+            .lte('date', lastDayOfMonth);
+
+        if (error) throw error;
+
+        const monthlyBilledSpent = monthlyExpenses
+            .filter(expense => expense.billed)
+            .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+
+        const monthlyUnbilledSpent = monthlyExpenses
+            .filter(expense => !expense.billed)
+            .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
     // Billed Budget Display
-    const billedRemaining = monthlyBilledBudget - monthlyBilledSpent;
-    const billedRemainingElement = document.getElementById('billed-budget-remaining');
-    const billedPercentage = monthlyBilledBudget > 0 ? ((billedRemaining / monthlyBilledBudget) * 100) : 0;
-    const billedPercentageText = monthlyBilledBudget > 0 ? ` (${billedPercentage.toFixed(0)}%)` : '';
+        const billedRemaining = monthlyBilledBudget - monthlyBilledSpent;
+        const billedRemainingElement = document.getElementById('billed-budget-remaining');
+        const billedPercentage = monthlyBilledBudget > 0 ? ((billedRemaining / monthlyBilledBudget) * 100) : 0;
+        const billedPercentageText = monthlyBilledBudget > 0 ? ` (${billedPercentage.toFixed(0)}%)` : '';
 
-    billedRemainingElement.textContent = `Billed Remaining: ₹${billedRemaining.toFixed(2)}${billedPercentageText}`;
-    document.getElementById('billed-budget-total').textContent = `Billed Budget: ₹${monthlyBilledBudget.toFixed(2)}`;
+        billedRemainingElement.textContent = `Billed Remaining: ₹${billedRemaining.toFixed(2)}${billedPercentageText}`;
+        document.getElementById('billed-budget-total').textContent = `Billed Budget: ₹${monthlyBilledBudget.toFixed(2)}`;
 
-    const billedUsedPercentage = monthlyBilledBudget > 0 ? (monthlyBilledSpent / monthlyBilledBudget) * 100 : 0;
-    const billedProgressBar = document.getElementById('billed-budget-progress-bar');
-    billedProgressBar.style.width = `${Math.min(billedUsedPercentage, 100)}%`;
-    billedProgressBar.classList.toggle('over-budget', billedUsedPercentage > 100);
+        const billedUsedPercentage = monthlyBilledBudget > 0 ? (monthlyBilledSpent / monthlyBilledBudget) * 100 : 0;
+        const billedProgressBar = document.getElementById('billed-budget-progress-bar');
+        billedProgressBar.style.width = `${Math.min(billedUsedPercentage, 100)}%`;
+        billedProgressBar.classList.toggle('over-budget', billedUsedPercentage > 100);
 
     // Unbilled Budget Display
-    const unbilledRemaining = monthlyUnbilledBudget - monthlyUnbilledSpent;
-    const unbilledRemainingElement = document.getElementById('unbilled-budget-remaining');
-    const unbilledPercentage = monthlyUnbilledBudget > 0 ? ((unbilledRemaining / monthlyUnbilledBudget) * 100) : 0;
-    const unbilledPercentageText = monthlyUnbilledBudget > 0 ? ` (${unbilledPercentage.toFixed(0)}%)` : '';
+        const unbilledRemaining = monthlyUnbilledBudget - monthlyUnbilledSpent;
+        const unbilledRemainingElement = document.getElementById('unbilled-budget-remaining');
+        const unbilledPercentage = monthlyUnbilledBudget > 0 ? ((unbilledRemaining / monthlyUnbilledBudget) * 100) : 0;
+        const unbilledPercentageText = monthlyUnbilledBudget > 0 ? ` (${unbilledPercentage.toFixed(0)}%)` : '';
 
-    unbilledRemainingElement.textContent = `Unbilled Remaining: ₹${unbilledRemaining.toFixed(2)}${unbilledPercentageText}`;
-    document.getElementById('unbilled-budget-total').textContent = `Unbilled Budget: ₹${monthlyUnbilledBudget.toFixed(2)}`;
+        unbilledRemainingElement.textContent = `Unbilled Remaining: ₹${unbilledRemaining.toFixed(2)}${unbilledPercentageText}`;
+        document.getElementById('unbilled-budget-total').textContent = `Unbilled Budget: ₹${monthlyUnbilledBudget.toFixed(2)}`;
 
-    const unbilledUsedPercentage = monthlyUnbilledBudget > 0 ? (monthlyUnbilledSpent / monthlyUnbilledBudget) * 100 : 0;
-    const unbilledProgressBar = document.getElementById('unbilled-budget-progress-bar');
-    unbilledProgressBar.style.width = `${Math.min(unbilledUsedPercentage, 100)}%`;
-    unbilledProgressBar.classList.toggle('over-budget', unbilledUsedPercentage > 100);
+        const unbilledUsedPercentage = monthlyUnbilledBudget > 0 ? (monthlyUnbilledSpent / monthlyUnbilledBudget) * 100 : 0;
+        const unbilledProgressBar = document.getElementById('unbilled-budget-progress-bar');
+        unbilledProgressBar.style.width = `${Math.min(unbilledUsedPercentage, 100)}%`;
+        unbilledProgressBar.classList.toggle('over-budget', unbilledUsedPercentage > 100);
 
     // Color coding for remaining amounts
-    [
-        { element: billedRemainingElement, percentage: billedUsedPercentage },
-        { element: unbilledRemainingElement, percentage: unbilledUsedPercentage }
-    ].forEach(({ element, percentage }) => {
-        if (percentage >= 100) {
-            element.style.color = '#ef4444';
-            element.style.fontWeight = '600';
-        } else if (percentage >= 90) {
-            element.style.color = '#f56a20';
-            element.style.fontWeight = '600';
-        } else {
-            element.style.color = '';
-            element.style.fontWeight = '';
-        }
-    });
+        [
+            { element: billedRemainingElement, percentage: billedUsedPercentage },
+            { element: unbilledRemainingElement, percentage: unbilledUsedPercentage }
+        ].forEach(({ element, percentage }) => {
+            if (percentage >= 100) {
+                element.style.color = '#ef4444';
+                element.style.fontWeight = '600';
+            } else if (percentage >= 90) {
+                element.style.color = '#f56a20';
+                element.style.fontWeight = '600';
+            } else {
+                element.style.color = '';
+                element.style.fontWeight = '';
+            }
+        });
 
-    return { billedUsedPercentage, unbilledUsedPercentage };
+        return { billedUsedPercentage, unbilledUsedPercentage };
+
+    } catch (error) {
+        console.error('Failed to update budget display:', error);
+        return { billedUsedPercentage: 0, unbilledUsedPercentage: 0 };
+    }
 }
 
 function updateDateDisplay() {
@@ -1318,19 +1414,30 @@ async function exportToCSV() {
     rows.push(['', '', '', '', '']);
     rows.push(['', '', 'TOTAL:', `₹${total.toFixed(2)}`, '']);
 
-    // Add budget info if current month export
+    // Check if export contains both billed and unbilled, or just one type
+    const hasBilled = filteredExpenses.some(e => e.billed);
+    const hasUnbilled = filteredExpenses.some(e => !e.billed);
+
     if (isCurrentMonthExport && (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0)) {
         const billedSpent = filteredExpenses.filter(e => e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
         const unbilledSpent = filteredExpenses.filter(e => !e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
 
         rows.push(['', '', '', '', '']);
-        rows.push(['', '', 'BILLED BUDGET:', `₹${monthlyBilledBudget.toFixed(2)}`, '']);
-        rows.push(['', '', 'BILLED SPENT:', `₹${billedSpent.toFixed(2)}`, '']);
-        rows.push(['', '', 'BILLED REMAINING:', `₹${(monthlyBilledBudget - billedSpent).toFixed(2)}`, '']);
-        rows.push(['', '', '', '', '']);
-        rows.push(['', '', 'UNBILLED BUDGET:', `₹${monthlyUnbilledBudget.toFixed(2)}`, '']);
-        rows.push(['', '', 'UNBILLED SPENT:', `₹${unbilledSpent.toFixed(2)}`, '']);
-        rows.push(['', '', 'UNBILLED REMAINING:', `₹${(monthlyUnbilledBudget - unbilledSpent).toFixed(2)}`, '']);
+
+        // Only add billed budget info if export has billed expenses and budget is set
+        if (hasBilled && monthlyBilledBudget > 0) {
+            rows.push(['', '', 'BILLED BUDGET:', `₹${monthlyBilledBudget.toFixed(2)}`, '']);
+            rows.push(['', '', 'BILLED SPENT:', `₹${billedSpent.toFixed(2)}`, '']);
+            rows.push(['', '', 'BILLED REMAINING:', `₹${(monthlyBilledBudget - billedSpent).toFixed(2)}`, '']);
+            if (hasUnbilled) rows.push(['', '', '', '', '']); // Add separator if both types
+        }
+
+        // Only add unbilled budget info if export has unbilled expenses and budget is set
+        if (hasUnbilled && monthlyUnbilledBudget > 0) {
+            rows.push(['', '', 'UNBILLED BUDGET:', `₹${monthlyUnbilledBudget.toFixed(2)}`, '']);
+            rows.push(['', '', 'UNBILLED SPENT:', `₹${unbilledSpent.toFixed(2)}`, '']);
+            rows.push(['', '', 'UNBILLED REMAINING:', `₹${(monthlyUnbilledBudget - unbilledSpent).toFixed(2)}`, '']);
+        }
     }
 
     const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
@@ -1365,7 +1472,7 @@ function showExpenseList() {
                             <div class="expense-item" style="margin: 0; border-radius: 0;" data-id="${expense.id}">
                                 <div class="expense-details">
                                     <div class="expense-amount" data-original="${expense.amount}">₹${parseFloat(expense.amount).toFixed(2)}</div>
-                                    <div class="expense-note" data-original="${expense.note || ''}">${expense.note || 'No description'}</div>
+                                    <div class="expense-note" data-original="${expense.note || ''}">${sanitizeHTML(expense.note) || 'No description'}</div>
                                     <div class="expense-meta">
                                         <span class="expense-type" data-original="${expense.type}">${expense.type}</span>
                                         <span class="billed-status" data-billed="${expense.billed}">
@@ -1479,6 +1586,250 @@ async function loadTypesForDeletion() {
     } catch (error) {
         console.error('Failed to load types:', error);
     }
+}
+
+function showSearchModal() {
+    document.getElementById('search-modal').style.display = 'block';
+    document.getElementById('search-input').focus();
+    loadAllExpensesForSearch();
+}
+
+function closeSearchModal() {
+    document.getElementById('search-modal').style.display = 'none';
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-results').innerHTML = '';
+}
+
+// Add this function for search
+async function loadAllExpensesForSearch() {
+    try {
+        const { data, error } = await supabase
+            .from('expenses')
+            .select('*')
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+
+        allExpensesCache = data || [];
+        performSearch(); // Show all initially
+    } catch (error) {
+        console.error('Failed to load expenses for search:', error);
+    }
+}
+
+// Add search function
+function performSearch() {
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    const resultsContainer = document.getElementById('search-results');
+
+    if (!allExpensesCache) {
+        resultsContainer.innerHTML = '<p>Loading...</p>';
+        return;
+    }
+
+        let filteredResults = allExpensesCache;
+
+    if (searchTerm) {
+        filteredResults = allExpensesCache.filter(expense =>
+            expense.note?.toLowerCase().includes(searchTerm) ||
+            expense.type.toLowerCase().includes(searchTerm) ||
+            expense.amount.toString().includes(searchTerm) ||
+            formatDate(expense.date).toLowerCase().includes(searchTerm)
+        );
+    }
+
+    if (filteredResults.length === 0) {
+        resultsContainer.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 2rem;">No expenses found</p>';
+        return;
+    }
+
+    const total = filteredResults.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+
+    resultsContainer.innerHTML = `
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: #f9fafb; border-radius: 8px; font-weight: 600;">
+            Found ${filteredResults.length} expense(s) totaling ₹${total.toFixed(2)}
+        </div>
+        ${filteredResults.map(expense => `
+            <div class="expense-item" style="margin-bottom: 0.5rem;">
+                <div class="expense-details">
+                    <div class="expense-amount">₹${parseFloat(expense.amount).toFixed(2)}</div>
+                    <div class="expense-note">${expense.note || 'No description'}</div>
+                    <div class="expense-meta">
+                        <span class="expense-type">${expense.type}</span>
+                        ${expense.billed ? '<span class="billed-badge">BILLED</span>' : '<span style="color: #ef4444; font-size: 0.7rem; font-weight: 600;">UNBILLED</span>'}
+                        <span>${formatDate(expense.date)}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('')}
+    `;
+}
+
+// Add spending insights function
+function showInsightsModal() {
+    document.getElementById('insights-modal').style.display = 'block';
+    loadSpendingInsights();
+}
+
+function closeInsightsModal() {
+    document.getElementById('insights-modal').style.display = 'none';
+}
+
+// Add insights calculation
+async function loadSpendingInsights() {
+    try {
+        const { data, error } = await supabase
+            .from('expenses')
+            .select('note, amount, date, type, billed')
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+
+        const insights = calculateInsights(data);
+        displayInsights(insights);
+    } catch (error) {
+        console.error('Failed to load insights:', error);
+    }
+}
+
+function calculateInsights(expenses) {
+    const istNow = getISTDate();
+    const currentMonth = istNow.getMonth() + 1;
+    const currentYear = istNow.getFullYear();
+    const bounds = getISTMonthBounds(currentYear, currentMonth);
+
+    const thisMonth = expenses.filter(expense => {
+        return expense.date >= bounds.first && expense.date <= bounds.last;
+    });
+
+    const lastMonthBounds = currentMonth === 1 ?
+        getISTMonthBounds(currentYear - 1, 12) :
+        getISTMonthBounds(currentYear, currentMonth - 1);
+
+    const lastMonth = expenses.filter(expense => {
+        return expense.date >= lastMonthBounds.first && expense.date <= lastMonthBounds.last;
+    });
+
+    // Calculations
+    const thisMonthTotal = thisMonth.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const lastMonthTotal = lastMonth.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const monthlyChange = lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0;
+
+    // Top categories this month
+    const categoryTotals = {};
+    thisMonth.forEach(expense => {
+        categoryTotals[expense.type] = (categoryTotals[expense.type] || 0) + parseFloat(expense.amount);
+    });
+
+    const topCategories = Object.entries(categoryTotals)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 6);
+
+    // Daily average
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const currentDay = istNow.getDate();
+    const dailyAverage = thisMonthTotal / currentDay;
+    const projectedMonthly = dailyAverage * daysInMonth;
+
+    // Highest expense
+    const highestExpense = thisMonth.length > 0 ?
+        thisMonth.reduce((max, expense) => parseFloat(expense.amount) > parseFloat(max.amount) ? expense : max) : null;
+
+    // Average per transaction
+    const avgPerTransaction = thisMonth.length > 0 ? thisMonthTotal / thisMonth.length : 0;
+
+    // Lowest expense
+    const lowestExpense = thisMonth.length > 0 ?
+    thisMonth.reduce((min, expense) => parseFloat(expense.amount) < parseFloat(min.amount) ? expense : min) : null;
+
+    return {
+        thisMonthTotal,
+        lastMonthTotal,
+        monthlyChange,
+        topCategories,
+        dailyAverage,
+        projectedMonthly,
+        highestExpense,
+        lowestExpense,
+        totalExpenses: thisMonth.length,
+        avgPerTransaction
+    };
+}
+
+function displayInsights(insights) {
+    const container = document.getElementById('insights-content');
+    const monthName = getCurrentMonthName();
+
+    container.innerHTML = `
+        <div style="margin-bottom: 2rem;"></div>
+        <div class="insights-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
+
+            <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">This Month Total</h4>
+                <p style="margin: 0; font-size: 2rem; font-weight: 700;">₹${insights.thisMonthTotal.toFixed(2)}</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">${insights.totalExpenses} transactions</p>
+            </div>
+
+            <div class="insight-card" style="padding: 1.5rem; background: ${insights.monthlyChange >= 0 ? 'linear-gradient(135deg, #f093fb, #f5576c)' : 'linear-gradient(135deg, #43e97b, #38f9d7)'}; color: white; border-radius: 12px;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">vs Last Month</h4>
+                <p style="margin: 0; font-size: 2rem; font-weight: 700;">${insights.monthlyChange >= 0 ? '+' : ''}${insights.monthlyChange.toFixed(1)}%</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">₹${insights.lastMonthTotal.toFixed(2)} last month</p>
+            </div>
+
+            <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; border-radius: 12px;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">Daily Average</h4>
+                <p style="margin: 0; font-size: 2rem; font-weight: 700;">₹${insights.dailyAverage.toFixed(2)}</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">Projected: ₹${insights.projectedMonthly.toFixed(2)}</p>
+            </div>
+
+            <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg, #ffeaa7, #fab1a0); color: #2d3748; border-radius: 12px;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.8;">Avg Per Transaction</h4>
+                <p style="margin: 0; font-size: 2rem; font-weight: 700;">₹${(insights.thisMonthTotal / Math.max(insights.totalExpenses, 1)).toFixed(2)}</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">Range analysis</p>
+            </div>
+
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+
+            <div>
+                <h4 style="margin-bottom: 1rem; color: #374151;">Top Categories This Month</h4>
+                <div style="space-y: 0.5rem;">
+                    ${insights.topCategories.map(([category, amount], index) => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f9fafb; border-radius: 8px; margin-bottom: 0.5rem;">
+                            <span style="font-weight: 500; color: #374151;">${index + 1}. ${category}</span>
+                            <span style="font-weight: 600; color: #667eea;">₹${amount.toFixed(2)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div>
+                <h4 style="margin-bottom: 1.25rem; color: #374151;">Expense Range</h4>
+                ${insights.highestExpense ? `
+                    <div style="padding: 1rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Highest Expense</div>
+                        <div style="font-size: 1.5rem; font-weight: 600; color: #dc2626; margin-bottom: 0.5rem;">₹${parseFloat(insights.highestExpense.amount).toFixed(2)}</div>
+                        <div style="color: #6b7280; margin-bottom: 0.25rem;">${insights.highestExpense.note ? sanitizeHTML(insights.highestExpense.note) : 'No description'}</div>
+                        <div style="font-size: 0.875rem; color: #6b7280;">
+                            ${insights.highestExpense.type} • ${formatDate(insights.highestExpense.date)}
+                        </div>
+                    </div>
+                ` : ''}
+                ${insights.lowestExpense ? `
+                    <div style="padding: 1rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+                        <div style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Lowest Expense</div>
+                        <div style="font-size: 1.5rem; font-weight: 600; color: #0369a1; margin-bottom: 0.5rem;">₹${parseFloat(insights.lowestExpense.amount).toFixed(2)}</div>
+                        <div style="color: #6b7280; margin-bottom: 0.25rem;">${insights.lowestExpense.note ? sanitizeHTML(insights.lowestExpense.note) : 'No description'}</div>
+                        <div style="font-size: 0.875rem; color: #6b7280;">
+                            ${insights.lowestExpense.type} • ${formatDate(insights.lowestExpense.date)}
+                        </div>
+                    </div>
+                ` : '<p style="color: #9ca3af;">No expenses this month</p>'}
+            </div>
+
+        </div>
+    `;
 }
 
 document.getElementById('delete-type-form').addEventListener('submit', async function (e) {
@@ -1878,6 +2229,7 @@ async function saveAllChanges() {
         await loadExpenses();
         await updateStatistics();
         await updateBudgetDisplay();
+        await checkBudgetWarnings();
 
         showNotification('Changes saved successfully!', 'success');
     } catch (error) {
@@ -1888,8 +2240,9 @@ async function saveAllChanges() {
 // Update budget to use database
 async function loadUserBudget() {
     try {
-        const currentMonth = new Date().getMonth() + 1; // 1-12
-        const currentYear = new Date().getFullYear();
+        const istNow = getISTDate();
+        const currentMonth = istNow.getMonth() + 1;
+        const currentYear = istNow.getFullYear();
 
         const { data, error } = await supabase
             .from('user_budgets')
@@ -1920,19 +2273,25 @@ async function loadUserBudget() {
 // Update setBudget function
 document.getElementById('budget-form').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const newBilledBudget = parseFloat(document.getElementById('billed-budget-amount').value);
-    const newUnbilledBudget = parseFloat(document.getElementById('unbilled-budget-amount').value);
-
-    // Check if values changed
-    if (newBilledBudget === monthlyBilledBudget && newUnbilledBudget === monthlyUnbilledBudget) {
-        showNotification('Please make change to update the budgets.', 'error');
-        return;
-    }
-
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
 
     try {
+        const newBilledBudget = parseFloat(document.getElementById('billed-budget-amount').value) || 0;
+        const newUnbilledBudget = parseFloat(document.getElementById('unbilled-budget-amount').value) || 0;
+
+        if (newBilledBudget === monthlyBilledBudget && newUnbilledBudget === monthlyUnbilledBudget) {
+            showNotification('Please make changes to update the budgets.', 'error');
+            return;
+        }
+
+        if (newBilledBudget < 0 || newUnbilledBudget < 0) {
+            showNotification('Budget amounts cannot be negative.', 'error');
+            return;
+        }
+
+        const istNow = getISTDate();
+        const currentMonth = istNow.getMonth() + 1;
+        const currentYear = istNow.getFullYear();
+
         const { error } = await supabase
             .from('user_budgets')
             .upsert([{
@@ -1948,15 +2307,17 @@ document.getElementById('budget-form').addEventListener('submit', async function
         monthlyBilledBudget = newBilledBudget;
         monthlyUnbilledBudget = newUnbilledBudget;
         budgetWarningShown = { billed: false, unbilled: false };
-        updateBudgetDisplay();
+
+        await updateBudgetDisplay();
         updateBudgetHeader();
 
         const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
-        budgetBtn.textContent = 'Update Budget';
+        if (budgetBtn) budgetBtn.textContent = 'Update Budget';
 
         closeBudgetModal();
         showNotification(`${getCurrentMonthName()} budgets updated successfully!`, 'success');
     } catch (error) {
+        console.error('Budget update error:', error);
         showNotification('Failed to update budget: ' + error.message, 'error');
     }
 });
@@ -2183,6 +2544,12 @@ window.onclick = function (event) {
     }
     if (event.target === document.getElementById('edit-type-modal')) {
         closeEditTypeModal();
+    }
+    if (event.target === document.getElementById('search-modal')) {
+        closeSearchModal();
+    }
+    if (event.target === document.getElementById('insights-modal')) {
+        closeInsightsModal();
     }
 
 }

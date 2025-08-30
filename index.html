@@ -23,8 +23,10 @@
         <meta content="Expense Tracker" name="apple-mobile-web-app-title" />
         <!-- End Favicon Setup -->
         <link href="./manifest.json" rel="manifest" />
+        \
         <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
         <link href="style.css" rel="stylesheet" />
@@ -151,6 +153,9 @@
                         <button class="user-menu-item" onclick="showEditProfile(); toggleUserMenu();">
                             <span>👤</span> Edit Profile
                         </button>
+                        <button class="user-menu-item" onclick="showInsightsModal(); toggleUserMenu();">
+                            <span>📊</span> Spending Insights
+                        </button>
                         <button class="user-menu-item" onclick="showChangePassword(); toggleUserMenu();">
                             <span>🔐</span> Change Password
                         </button>
@@ -163,7 +168,7 @@
                 <div class="stats">
                     <div class="stat-card">
                         <div class="stat-value" id="total-expenses">₹0</div>
-                        <div class="stat-label">Total Expenses</div>
+                        <div class="stat-label">Last Month</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="monthly-expenses">₹0</div>
@@ -314,6 +319,14 @@
                 </form>
             </div>
         </div>
+        <!-- Insights Modal -->
+        <div id="insights-modal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <span class="close-modal" onclick="closeInsightsModal()">&times;</span>
+                <h3>Spending Insights</h3>
+                <div id="insights-content"></div>
+            </div>
+        </div>
         <!-- Add Type Modal -->
         <div class="modal" id="add-type-modal">
             <div class="modal-content">
@@ -421,8 +434,9 @@
                             </select>
                         </div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-                        <button class="btn btn-small" onclick="exportToCSV()" type="button">📥 Export CSV</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                        <button class="btn btn-small" onclick="exportToCSV()" type="button">Export CSV</button>
+                        <button class="btn btn-small" onclick="showSearchModal()">Search Expenses</button>
                         <button class="btn btn-small" onclick="applyDateFilter()" type="button">Apply Filter</button>
                     </div>
                 </div>
@@ -432,16 +446,36 @@
                 <div style="margin-top: 2rem;">
                     <h4 style="margin-bottom: 1rem; color: #374151;">Chart Type:</h4>
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
-                        <button class="btn btn-small" onclick="updateChartType('line')" type="button">Line Chart</button>
-                        <button class="btn btn-small" onclick="updateChartType('horizontalBar')" type="button">Horizontal Bar</button>
-                        <button class="btn btn-small" onclick="updateChartType('doughnut')" type="button">Doughnut</button>
-                        <button class="btn btn-small" onclick="updateChartType('bubble')" type="button">Bubble Chart</button>
+                        <button class="btn btn-small" onclick="updateChartType('line')" type="button">Line
+                            Chart</button>
+                        <button class="btn btn-small" onclick="updateChartType('horizontalBar')"
+                            type="button">Horizontal Bar</button>
+                        <button class="btn btn-small" onclick="updateChartType('doughnut')"
+                            type="button">Doughnut</button>
+                        <button class="btn btn-small" onclick="updateChartType('bubble')" type="button">Bubble
+                            Chart</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <script src="script.js"></script>
+        <!-- Search Modal -->
+        <div id="search-modal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 600px;">
+                <span class="close-modal" onclick="closeSearchModal()">&times;</span>
+                <h3 style="margin-bottom: 1.5rem;">Search Expenses</h3>
+                <div style="margin-bottom: 1rem; margin-top: 1rem;">
+                    <div style="margin-bottom: 1rem;">
+                        <input type="text" id="search-input"
+                            placeholder="Search by description, type, amount, or date..."
+                            style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;"
+                            oninput="performSearch()">
+                    </div>
+                    <div id="search-results" style="max-height: 400px; overflow-y: auto;"></div>
+                </div>
+            </div>
+
+            <script src="script.js"></script>
     </body>
 
 </html>

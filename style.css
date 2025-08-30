@@ -1078,6 +1078,42 @@ body.loaded {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
+.dark-mode #search-results>div:first-child {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #f9fafb !important;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark-mode .insight-card div[style*="justify-content: between"] span {
+    color: #f9fafb !important;
+}
+
+/* Dark mode insights category text fix */
+.dark-mode .insight-card div[style*="justify-content: space-between"] span:first-child {
+    color: #f9fafb !important;
+}
+
+/* Dark mode insights cards background fix */
+.dark-mode .insights-content div[style*="background: #f9fafb"] {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Dark mode insights headings */
+.dark-mode #insights-content h4 {
+    color: #f9fafb !important;
+}
+
+/* Dark mode highest expense card */
+.dark-mode .insights-content div[style*="background: #fef2f2"] {
+    background: rgba(239, 68, 68, 0.1) !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+.dark-mode .insights-content div[style*="background: #fef2f2"] div {
+    color: #fca5a5 !important;
+}
+
 .edit-type-btn {
     position: absolute;
     right: 48px;
