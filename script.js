@@ -70,22 +70,24 @@ function validateExpenseInput(amount, type, note) {
 }
 
 function getISTDate(date = new Date()) {
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    return new Date(date.getTime() + istOffset - (date.getTimezoneOffset() * 60 * 1000));
+    // Create IST date properly
+    const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    return new Date(utc + istOffset);
 }
 
 function getISTMonthBounds(year, month) {
-    // Create first day at midnight IST
-    const firstDay = new Date(year, month - 1, 1);
-    const lastDay = new Date(year, month, 0);
+    // Get first day (always 01) and last day of the month
+    const firstDay = 1;
+    const lastDay = new Date(year, month, 0).getDate(); // 0th day of next month = last day of current month
 
-    // Convert to IST strings
-    const istFirst = getISTDate(firstDay);
-    const istLast = getISTDate(lastDay);
+    // Format as YYYY-MM-DD strings
+    const firstDayStr = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDayStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     return {
-        first: istFirst.toISOString().split('T')[0],
-        last: istLast.toISOString().split('T')[0]
+        first: firstDayStr,
+        last: lastDayStr
     };
 }
 
@@ -137,7 +139,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Set today's date in IST
     const istNow = getISTDate();
     const todayIST = istNow.toISOString().split('T')[0];
-    const firstDayIST = getISTMonthBounds(istNow.getFullYear(), istNow.getMonth() + 1).first;
+    const currentMonth = istNow.getMonth() + 1;
+    const currentYear = istNow.getFullYear();
+    const firstDayIST = getISTMonthBounds(currentYear, currentMonth).first;
 
     document.getElementById('date').value = todayIST;
     document.getElementById('end-date').value = todayIST;
@@ -1068,16 +1072,15 @@ function updateDateDisplay() {
     const dateDisplay = document.getElementById('date-display');
 
     if (dateInput && dateInput.value) {
-        // Create date in IST (UTC+5:30)
-        const [year, month, day] = dateInput.value.split('-');
-        const date = new Date(year, month - 1, day); // month is 0-indexed
+        // Parse date string directly without timezone conversion
+        const [year, month, day] = dateInput.value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
 
         const options = {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
-            year: 'numeric',
-            timeZone: 'Asia/Kolkata'
+            year: 'numeric'
         };
 
         const formattedDate = date.toLocaleDateString('en-IN', options);
@@ -1089,8 +1092,6 @@ function updateDateDisplay() {
         if (dateDisplay) {
             dateDisplay.textContent = formattedDate.replace(dayNum.toString(), `${dayNum}${suffix}`);
         }
-    } else if (dateDisplay) {
-        dateDisplay.textContent = '';
     }
 }
 
