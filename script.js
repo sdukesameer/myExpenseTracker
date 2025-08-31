@@ -71,7 +71,7 @@ function validateExpenseInput(amount, type, note) {
 
 function getISTDate(date = new Date()) {
     // Create IST date properly
-    const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const utc = date.getTime();
     const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
     return new Date(utc + istOffset);
 }
@@ -137,7 +137,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // Set today's date in IST
-    const istNow = getISTDate();
+    const now = new Date();
+    const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
     const todayIST = istNow.toISOString().split('T')[0];
     const currentMonth = istNow.getMonth() + 1;
     const currentYear = istNow.getFullYear();
