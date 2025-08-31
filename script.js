@@ -9,8 +9,8 @@ let monthlyBilledBudget = 0;
 let monthlyUnbilledBudget = 0;
 
 // Initialize Supabase - FIXED: Remove import.meta usage
-const supabaseUrl = 'https://hjjpjcqzslqikopsbxwh.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqanBqY3F6c2xxaWtvcHNieHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzODk3MzcsImV4cCI6MjA2OTk2NTczN30.GPU3hJwuPkgKeGRaoF6i3oFygL4sTuQXsc5RR5otLjU';
+const supabaseUrl = 'YOUR_SUPABASE_URL';
+const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('Supabase credentials not found. Please check environment variables.');
@@ -544,11 +544,23 @@ async function showDashboard() {
     await updateStatistics();
     await updateBudgetDisplay();
 
-    // Update budget button text after budget is loaded
-    setTimeout(() => {
-        const budgetText = (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0) ? 'Update Budget' : 'Set Budget';
+    // Check if current month budget exists and update button
+    setTimeout(async () => {
+        const istNow = getISTDate();
+        const currentMonth = istNow.getMonth() + 1;
+        const currentYear = istNow.getFullYear();
+
+        const { data } = await supabase
+            .from('user_budgets')
+            .select('monthly_billed_budget, monthly_unbilled_budget')
+            .eq('user_id', currentUser.id)
+            .eq('budget_month', currentMonth)
+            .eq('budget_year', currentYear)
+            .single();
+
+        const budgetExists = data && (data.monthly_billed_budget > 0 || data.monthly_unbilled_budget > 0);
         const budgetBtn = document.querySelector('.budget-tracker h3 + .btn');
-        if (budgetBtn) budgetBtn.textContent = budgetText;
+        if (budgetBtn) budgetBtn.textContent = budgetExists ? 'Update Budget' : 'Set Budget';
     }, 100);
 }
 
@@ -975,11 +987,26 @@ function updateBudgetHeader() {
 
 // Budget management
 function setBudget() {
-    const budgetText = (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0) ? 'Update Budget' : 'Set Budget';
-    document.querySelector('.budget-tracker h3 + .btn').textContent = budgetText;
     document.getElementById('budget-modal').style.display = 'block';
-    document.getElementById('billed-budget-amount').value = monthlyBilledBudget || '';
-    document.getElementById('unbilled-budget-amount').value = monthlyUnbilledBudget || '';
+    // Load current month's budget specifically
+    loadCurrentMonthBudget();
+}
+
+async function loadCurrentMonthBudget() {
+    const istNow = getISTDate();
+    const currentMonth = istNow.getMonth() + 1;
+    const currentYear = istNow.getFullYear();
+
+    const { data } = await supabase
+        .from('user_budgets')
+        .select('monthly_billed_budget, monthly_unbilled_budget')
+        .eq('user_id', currentUser.id)
+        .eq('budget_month', currentMonth)
+        .eq('budget_year', currentYear);
+
+    const budget = data && data.length > 0 ? data[0] : null;
+    document.getElementById('billed-budget-amount').value = budget?.monthly_billed_budget || '';
+    document.getElementById('unbilled-budget-amount').value = budget?.monthly_unbilled_budget || '';
 }
 
 function closeBudgetModal() {
@@ -1392,13 +1419,40 @@ async function exportToCSV() {
     // Get date range for budget info
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
+    const billingFilter = document.getElementById('billing-filter').value;
 
-    // Determine if we should show budget (only for current month exports)
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
+    // Generate filename based on filters
+    let filename = 'expenses';
+
+    if (startDate && endDate) {
+        if (startDate === endDate) {
+            filename += `_${startDate}`;
+        } else {
+            filename += `_${startDate}_to_${endDate}`;
+        }
+    } else if (startDate) {
+        filename += `_from_${startDate}`;
+    } else if (endDate) {
+        filename += `_until_${endDate}`;
+    }
+
+    if (billingFilter === 'billed') {
+        filename += '_billed';
+    } else if (billingFilter === 'unbilled') {
+        filename += '_unbilled';
+    } else {
+        filename += '_both';
+    }
+
+    filename += '.csv';
+
+    // Check if the date range spans only one month
     const startMonth = startDate ? new Date(startDate).getMonth() + 1 : null;
     const startYear = startDate ? new Date(startDate).getFullYear() : null;
-    const isCurrentMonthExport = startMonth === currentMonth && startYear === currentYear;
+    const endMonth = endDate ? new Date(endDate).getMonth() + 1 : null;
+    const endYear = endDate ? new Date(endDate).getFullYear() : null;
+
+    const isSingleMonthExport = startMonth === endMonth && startYear === endYear && startMonth && endMonth;
 
     const headers = ['Date', 'Type', 'Amount', 'Note', 'Billed'];
     const rows = filteredExpenses.map(expense => [
@@ -1414,42 +1468,59 @@ async function exportToCSV() {
 
     // Add total row
     rows.push(['', '', '', '', '']);
-    rows.push(['', '', 'TOTAL:', `₹${total.toFixed(2)}`, '']);
+    rows.push(['', '', 'TOTAL:', `Rs. ${total.toFixed(2)}`, '']);
 
     // Check if export contains both billed and unbilled, or just one type
     const hasBilled = filteredExpenses.some(e => e.billed);
     const hasUnbilled = filteredExpenses.some(e => !e.billed);
 
-    if (isCurrentMonthExport && (monthlyBilledBudget > 0 || monthlyUnbilledBudget > 0)) {
-        const billedSpent = filteredExpenses.filter(e => e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
-        const unbilledSpent = filteredExpenses.filter(e => !e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    // Only show budget info if it's a single month export
+    if (isSingleMonthExport) {
+        try {
+            // Fetch budget for the specific month
+            const { data: budgetData } = await supabase
+                .from('user_budgets')
+                .select('monthly_billed_budget, monthly_unbilled_budget')
+                .eq('user_id', currentUser.id)
+                .eq('budget_month', startMonth)
+                .eq('budget_year', startYear)
+                .single();
 
-        rows.push(['', '', '', '', '']);
+            const exportBilledBudget = budgetData?.monthly_billed_budget || 0;
+            const exportUnbilledBudget = budgetData?.monthly_unbilled_budget || 0;
 
-        // Only add billed budget info if export has billed expenses and budget is set
-        if (hasBilled && monthlyBilledBudget > 0) {
-            rows.push(['', '', 'BILLED BUDGET:', `₹${monthlyBilledBudget.toFixed(2)}`, '']);
-            rows.push(['', '', 'BILLED SPENT:', `₹${billedSpent.toFixed(2)}`, '']);
-            rows.push(['', '', 'BILLED REMAINING:', `₹${(monthlyBilledBudget - billedSpent).toFixed(2)}`, '']);
-            if (hasUnbilled) rows.push(['', '', '', '', '']); // Add separator if both types
-        }
+            if (exportBilledBudget > 0 || exportUnbilledBudget > 0) {
+                const billedSpent = filteredExpenses.filter(e => e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                const unbilledSpent = filteredExpenses.filter(e => !e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
 
-        // Only add unbilled budget info if export has unbilled expenses and budget is set
-        if (hasUnbilled && monthlyUnbilledBudget > 0) {
-            rows.push(['', '', 'UNBILLED BUDGET:', `₹${monthlyUnbilledBudget.toFixed(2)}`, '']);
-            rows.push(['', '', 'UNBILLED SPENT:', `₹${unbilledSpent.toFixed(2)}`, '']);
-            rows.push(['', '', 'UNBILLED REMAINING:', `₹${(monthlyUnbilledBudget - unbilledSpent).toFixed(2)}`, '']);
+                rows.push(['', '', '', '', '']);
+
+                // Only add billed budget info if export has billed expenses and budget is set
+                if (hasBilled && exportBilledBudget > 0) {
+                    rows.push(['', '', 'BILLED BUDGET:', `Rs. ${exportBilledBudget.toFixed(2)}`, '']);
+                    rows.push(['', '', 'BILLED SPENT:', `Rs. ${billedSpent.toFixed(2)}`, '']);
+                    rows.push(['', '', 'BILLED REMAINING:', `Rs. ${(exportBilledBudget - billedSpent).toFixed(2)}`, '']);
+                    if (hasUnbilled) rows.push(['', '', '', '', '']); // Add separator if both types
+                }
+
+                // Only add unbilled budget info if export has unbilled expenses and budget is set
+                if (hasUnbilled && exportUnbilledBudget > 0) {
+                    rows.push(['', '', 'UNBILLED BUDGET:', `Rs. ${exportUnbilledBudget.toFixed(2)}`, '']);
+                    rows.push(['', '', 'UNBILLED SPENT:', `Rs. ${unbilledSpent.toFixed(2)}`, '']);
+                    rows.push(['', '', 'UNBILLED REMAINING:', `Rs. ${(exportUnbilledBudget - unbilledSpent).toFixed(2)}`, '']);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch budget for export month:', error);
         }
     }
 
     const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    const istDate = new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000));
-    link.setAttribute('download', `expenses_${istDate.toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', filename);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -1772,10 +1843,10 @@ function displayInsights(insights) {
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">${insights.totalExpenses} transactions</p>
             </div>
 
-            <div class="insight-card" style="padding: 1.5rem; background: ${insights.monthlyChange >= 0 ? 'linear-gradient(135deg, #f093fb, #f5576c)' : 'linear-gradient(135deg, #43e97b, #38f9d7)'}; color: white; border-radius: 12px;">
+            <div class="insight-card" style="padding: 1.5rem; background: ${insights.monthlyChange > 0? 'linear-gradient(135deg, #d4fc79, #96e6a1)' : 'linear-gradient(135deg, #fbc2eb, #a18cd1)'}; color: white; border-radius: 12px;">
                 <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">vs Last Month</h4>
-                <p style="margin: 0; font-size: 2rem; font-weight: 700;">${insights.monthlyChange >= 0 ? '+' : ''}${insights.monthlyChange.toFixed(1)}%</p>
-                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">₹${insights.lastMonthTotal.toFixed(2)} last month</p>
+                <p style="margin: 0; font-size: 2rem; font-weight: 700; color: ${insights.monthlyChange > 0 ? '#ff4757' : '#39cc79'};"> ${insights.monthlyChange >= 0 ? '+' : ''}${insights.monthlyChange.toFixed(1)}% </p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;"> ₹${insights.lastMonthTotal.toFixed(2)} last month </p>
             </div>
 
             <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; border-radius: 12px;">
@@ -1784,7 +1855,7 @@ function displayInsights(insights) {
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">Projected: ₹${insights.projectedMonthly.toFixed(2)}</p>
             </div>
 
-            <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg, #ffeaa7, #fab1a0); color: #2d3748; border-radius: 12px;">
+            <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg,rgb(215, 189, 94), #fab1a0); color: #white; border-radius: 12px;">
                 <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.8;">Avg Per Transaction</h4>
                 <p style="margin: 0; font-size: 2rem; font-weight: 700;">₹${(insights.thisMonthTotal / Math.max(insights.totalExpenses, 1)).toFixed(2)}</p>
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">Range analysis</p>
@@ -1821,7 +1892,7 @@ function displayInsights(insights) {
                 ${insights.lowestExpense ? `
                     <div style="padding: 1rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
                         <div style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">Lowest Expense</div>
-                        <div style="font-size: 1.5rem; font-weight: 600; color: #0369a1; margin-bottom: 0.5rem;">₹${parseFloat(insights.lowestExpense.amount).toFixed(2)}</div>
+                        <div style="font-size: 1.5rem; font-weight: 600; color:rgb(8, 161, 3); margin-bottom: 0.5rem;">₹${parseFloat(insights.lowestExpense.amount).toFixed(2)}</div>
                         <div style="color: #6b7280; margin-bottom: 0.25rem;">${insights.lowestExpense.note ? sanitizeHTML(insights.lowestExpense.note) : 'No description'}</div>
                         <div style="font-size: 0.875rem; color: #6b7280;">
                             ${insights.lowestExpense.type} • ${formatDate(insights.lowestExpense.date)}
@@ -2239,7 +2310,6 @@ async function saveAllChanges() {
     }
 }
 
-// Update budget to use database
 async function loadUserBudget() {
     try {
         const istNow = getISTDate();
@@ -2248,22 +2318,23 @@ async function loadUserBudget() {
 
         const { data, error } = await supabase
             .from('user_budgets')
-            .select('monthly_billed_budget, monthly_unbilled_budget, budget_month, budget_year')
+            .select('monthly_billed_budget, monthly_unbilled_budget')
             .eq('user_id', currentUser.id)
-            .single();
+            .eq('budget_month', currentMonth)
+            .eq('budget_year', currentYear);
 
-        if (error && error.code !== 'PGRST116') throw error;
-
-        // If no budget exists or it's from a different month, reset to 0
-        if (!data || data.budget_month !== currentMonth || data.budget_year !== currentYear) {
+        if (error) {
+            console.error('Budget query error:', error);
             monthlyBilledBudget = 0;
             monthlyUnbilledBudget = 0;
-            updateBudgetHeader();
+        } else if (data && data.length > 0) {
+            monthlyBilledBudget = data[0].monthly_billed_budget || 0;
+            monthlyUnbilledBudget = data[0].monthly_unbilled_budget || 0;
         } else {
-            monthlyBilledBudget = data.monthly_billed_budget || 0;
-            monthlyUnbilledBudget = data.monthly_unbilled_budget || 0;
-            updateBudgetHeader();
+            monthlyBilledBudget = 0;
+            monthlyUnbilledBudget = 0;
         }
+        updateBudgetHeader();
     } catch (error) {
         console.error('Failed to load budget:', error);
         monthlyBilledBudget = 0;
@@ -2302,7 +2373,9 @@ document.getElementById('budget-form').addEventListener('submit', async function
                 monthly_unbilled_budget: newUnbilledBudget,
                 budget_month: currentMonth,
                 budget_year: currentYear
-            }], { onConflict: 'user_id' });
+            }], {
+                onConflict: 'user_id,budget_month,budget_year' // Match the new constraint
+            });
 
         if (error) throw error;
 

@@ -1101,7 +1101,7 @@ body.loaded {
 
 /* Dark mode insights headings */
 .dark-mode #insights-content h4 {
-    color: #f9fafb !important;
+    color: black !important;
 }
 
 /* Dark mode highest expense card */
