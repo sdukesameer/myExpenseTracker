@@ -140,9 +140,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     const now = new Date();
     const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
     const todayIST = istNow.toISOString().split('T')[0];
-    const currentMonth = istNow.getMonth() + 1;
-    const currentYear = istNow.getFullYear();
-    const firstDayIST = getISTMonthBounds(currentYear, currentMonth).first;
+    // Extract year and month from today's date
+    const [year, month] = todayIST.split('-');
+    const firstDayIST = `${year}-${month}-01`;
 
     document.getElementById('date').value = todayIST;
     document.getElementById('end-date').value = todayIST;
@@ -776,11 +776,13 @@ async function handleAddExpense(e) {
         document.getElementById('form-billed-toggle').classList.remove('active');
         updateDateDisplay();
 
+        const selectedType = document.getElementById('type').value; // Save current selection
         await Promise.all([
             loadExpenses(),
             updateStatistics(),
             updateBudgetDisplay()
         ]);
+        document.getElementById('type').value = selectedType; // Restore selection
 
         await checkBudgetWarnings();
         showNotification('Expense added successfully!', 'success');
