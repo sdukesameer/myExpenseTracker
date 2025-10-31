@@ -77,22 +77,18 @@ function getISTDate(date = new Date()) {
 }
 
 function getISTMonthBounds(year, month) {
+    // Get first day (always 01) and last day of the month
     const firstDay = 1;
-    const istNow = getISTDate();
-    
-    // If requesting current month, use today's date as last day
-    if (year === istNow.getFullYear() && month === istNow.getMonth() + 1) {
-        const currentDay = istNow.getDate();
-        const firstDayStr = `${year}-${String(month).padStart(2, '0')}-01`;
-        const lastDayStr = `${year}-${String(month).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
-        return { first: firstDayStr, last: lastDayStr };
-    }
-    
-    // For other months, return full month
-    const lastDay = new Date(year, month, 0).getDate();
+    const lastDay = new Date(year, month, 0).getDate(); // 0th day of next month = last day of current month
+
+    // Format as YYYY-MM-DD strings
     const firstDayStr = `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDayStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-    return { first: firstDayStr, last: lastDayStr };
+
+    return {
+        first: firstDayStr,
+        last: lastDayStr
+    };
 }
 
 function getCurrentMonthName() {
@@ -144,10 +140,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     const now = new Date();
     const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
     const todayIST = istNow.toISOString().split('T')[0];
-    // Extract year and month from today's date
+    const currentMonth = istNow.getMonth() + 1;
+    const currentYear = istNow.getFullYear();
+    const firstDayIST = getISTMonthBounds(currentYear, currentMonth).first;
+
     document.getElementById('date').value = todayIST;
     document.getElementById('end-date').value = todayIST;
-    document.getElementById('start-date').value = todayIST.substring(0, 8) + '01';
+    document.getElementById('start-date').value = firstDayIST;
 
     handleSecureEmailLink();
     handleEmailChangeConfirmation();
@@ -894,12 +893,12 @@ async function updateStatistics() {
         const lastDayOfMonth = bounds.last;
 
         // For last month:
-        const lastMonth = parseInt(currentMonth) === 1 ? 12 : parseInt(currentMonth) - 1;
-        const lastMonthYear = parseInt(currentMonth) === 1 ? parseInt(currentYear) - 1 : currentYear;
-        const lastMonthFirstDay = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-01`;
-        const lastMonthLastDay = new Date(lastMonthYear, lastMonth, 0).getDate();
-        const lastMonthLastDayStr = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-${String(lastMonthLastDay).padStart(2, '0')}`;
-        
+        const lastMonthBounds = currentMonth === 1 ?
+            getISTMonthBounds(currentYear - 1, 12) :
+            getISTMonthBounds(currentYear, currentMonth - 1);
+        const lastMonthFirstDay = lastMonthBounds.first;
+        const lastMonthLastDay = lastMonthBounds.last;
+
         // Current month calculations
         const monthlyExpenses = data
             .filter(expense => expense.date >= firstDayOfMonth && expense.date <= lastDayOfMonth)
@@ -918,7 +917,7 @@ async function updateStatistics() {
             .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
         const lastMonthExpenses = data
-            .filter(expense => expense.date >= lastMonthFirstDay && expense.date <= lastMonthLastDayStr)
+            .filter(expense => expense.date >= lastMonthFirstDay && expense.date <= lastMonthLastDay)
             .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
         // All-time total for reference
