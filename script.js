@@ -145,12 +145,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
     const todayIST = istNow.toISOString().split('T')[0];
     // Extract year and month from today's date
-    const [year, month] = todayIST.split('-');
-    const firstDayIST = `${year}-${month}-01`;
-
     document.getElementById('date').value = todayIST;
     document.getElementById('end-date').value = todayIST;
-    document.getElementById('start-date').value = firstDayIST;
+    document.getElementById('start-date').value = todayIST.substring(0, 8) + '01';
 
     handleSecureEmailLink();
     handleEmailChangeConfirmation();
