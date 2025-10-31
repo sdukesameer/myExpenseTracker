@@ -885,20 +885,20 @@ async function updateStatistics() {
 
         if (error) throw error;
 
-        const istNow = getISTDate();
-        const currentMonth = istNow.getMonth() + 1;
-        const currentYear = istNow.getFullYear();
-        const bounds = getISTMonthBounds(currentYear, currentMonth);
-        const firstDayOfMonth = bounds.first;
-        const lastDayOfMonth = bounds.last;
+        const now = new Date();
+        const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+        const todayIST = istNow.toISOString().split('T')[0];
+        const [currentYear, currentMonth] = todayIST.split('-');
+        const firstDayOfMonth = `${currentYear}-${currentMonth}-01`;
+        const lastDayOfMonth = todayIST; // Use today as last day
 
         // For last month:
-        const lastMonthBounds = currentMonth === 1 ?
-            getISTMonthBounds(currentYear - 1, 12) :
-            getISTMonthBounds(currentYear, currentMonth - 1);
-        const lastMonthFirstDay = lastMonthBounds.first;
-        const lastMonthLastDay = lastMonthBounds.last;
-
+        const lastMonth = parseInt(currentMonth) === 1 ? 12 : parseInt(currentMonth) - 1;
+        const lastMonthYear = parseInt(currentMonth) === 1 ? parseInt(currentYear) - 1 : currentYear;
+        const lastMonthFirstDay = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-01`;
+        const lastMonthLastDay = new Date(lastMonthYear, lastMonth, 0).getDate();
+        const lastMonthLastDayStr = `${lastMonthYear}-${String(lastMonth).padStart(2, '0')}-${String(lastMonthLastDay).padStart(2, '0')}`;
+        
         // Current month calculations
         const monthlyExpenses = data
             .filter(expense => expense.date >= firstDayOfMonth && expense.date <= lastDayOfMonth)
@@ -917,7 +917,7 @@ async function updateStatistics() {
             .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
         const lastMonthExpenses = data
-            .filter(expense => expense.date >= lastMonthFirstDay && expense.date <= lastMonthLastDay)
+            .filter(expense => expense.date >= lastMonthFirstDay && expense.date <= lastMonthLastDayStr)
             .reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
 
         // All-time total for reference
@@ -1019,12 +1019,12 @@ async function updateBudgetDisplay() {
     if (!currentUser) return;
 
     try {
-        const istNow = getISTDate();
-        const currentMonth = istNow.getMonth() + 1;
-        const currentYear = istNow.getFullYear();
-        const bounds = getISTMonthBounds(currentYear, currentMonth);
-        const firstDayOfMonth = bounds.first;
-        const lastDayOfMonth = bounds.last;
+        const now = new Date();
+        const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+        const todayIST = istNow.toISOString().split('T')[0];
+        const [currentYear, currentMonth] = todayIST.split('-');
+        const firstDayOfMonth = `${currentYear}-${currentMonth}-01`;
+        const lastDayOfMonth = todayIST;
 
         // Get current month expenses only
         const { data: monthlyExpenses, error } = await supabase
