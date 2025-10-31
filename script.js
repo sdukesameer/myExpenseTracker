@@ -77,18 +77,22 @@ function getISTDate(date = new Date()) {
 }
 
 function getISTMonthBounds(year, month) {
-    // Get first day (always 01) and last day of the month
     const firstDay = 1;
-    const lastDay = new Date(year, month, 0).getDate(); // 0th day of next month = last day of current month
-
-    // Format as YYYY-MM-DD strings
+    const istNow = getISTDate();
+    
+    // If requesting current month, use today's date as last day
+    if (year === istNow.getFullYear() && month === istNow.getMonth() + 1) {
+        const currentDay = istNow.getDate();
+        const firstDayStr = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDayStr = `${year}-${String(month).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+        return { first: firstDayStr, last: lastDayStr };
+    }
+    
+    // For other months, return full month
+    const lastDay = new Date(year, month, 0).getDate();
     const firstDayStr = `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDayStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-
-    return {
-        first: firstDayStr,
-        last: lastDayStr
-    };
+    return { first: firstDayStr, last: lastDayStr };
 }
 
 function getCurrentMonthName() {
@@ -885,12 +889,12 @@ async function updateStatistics() {
 
         if (error) throw error;
 
-        const now = new Date();
-        const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-        const todayIST = istNow.toISOString().split('T')[0];
-        const [currentYear, currentMonth] = todayIST.split('-');
-        const firstDayOfMonth = `${currentYear}-${currentMonth}-01`;
-        const lastDayOfMonth = todayIST; // Use today as last day
+        const istNow = getISTDate();
+        const currentMonth = istNow.getMonth() + 1;
+        const currentYear = istNow.getFullYear();
+        const bounds = getISTMonthBounds(currentYear, currentMonth);
+        const firstDayOfMonth = bounds.first;
+        const lastDayOfMonth = bounds.last;
 
         // For last month:
         const lastMonth = parseInt(currentMonth) === 1 ? 12 : parseInt(currentMonth) - 1;
@@ -1019,12 +1023,12 @@ async function updateBudgetDisplay() {
     if (!currentUser) return;
 
     try {
-        const now = new Date();
-        const istNow = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-        const todayIST = istNow.toISOString().split('T')[0];
-        const [currentYear, currentMonth] = todayIST.split('-');
-        const firstDayOfMonth = `${currentYear}-${currentMonth}-01`;
-        const lastDayOfMonth = todayIST;
+        const istNow = getISTDate();
+        const currentMonth = istNow.getMonth() + 1;
+        const currentYear = istNow.getFullYear();
+        const bounds = getISTMonthBounds(currentYear, currentMonth);
+        const firstDayOfMonth = bounds.first;
+        const lastDayOfMonth = bounds.last;
 
         // Get current month expenses only
         const { data: monthlyExpenses, error } = await supabase
