@@ -1702,7 +1702,7 @@ function performSearch() {
         return;
     }
 
-        let filteredResults = allExpensesCache;
+    let filteredResults = allExpensesCache;
 
     if (searchTerm) {
         filteredResults = allExpensesCache.filter(expense =>
@@ -1712,6 +1712,9 @@ function performSearch() {
             formatDate(expense.date).toLowerCase().includes(searchTerm)
         );
     }
+
+    // Sort by date descending (newest first)
+    filteredResults.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     if (filteredResults.length === 0) {
         resultsContainer.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 2rem;">No expenses found</p>';
@@ -1797,7 +1800,7 @@ function calculateInsights(expenses) {
     });
 
     const topCategories = Object.entries(categoryTotals)
-        .sort(([,a], [,b]) => b - a)
+        .sort(([, a], [, b]) => b - a)
         .slice(0, 6);
 
     // Daily average
@@ -1815,7 +1818,21 @@ function calculateInsights(expenses) {
 
     // Lowest expense
     const lowestExpense = thisMonth.length > 0 ?
-    thisMonth.reduce((min, expense) => parseFloat(expense.amount) < parseFloat(min.amount) ? expense : min) : null;
+        thisMonth.reduce((min, expense) => parseFloat(expense.amount) < parseFloat(min.amount) ? expense : min) : null;
+
+    // Monthly spending data for trend chart
+    const monthlyData = {};
+    expenses.forEach(expense => {
+        const date = new Date(expense.date);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthlyData[key]) {
+            monthlyData[key] = { billed: 0, unbilled: 0, total: 0 };
+        }
+        const amount = parseFloat(expense.amount);
+        monthlyData[key].total += amount;
+        if (expense.billed) monthlyData[key].billed += amount;
+        else monthlyData[key].unbilled += amount;
+    });
 
     return {
         thisMonthTotal,
@@ -1827,15 +1844,41 @@ function calculateInsights(expenses) {
         highestExpense,
         lowestExpense,
         totalExpenses: thisMonth.length,
-        avgPerTransaction
+        avgPerTransaction,
+        monthlyData
     };
 }
 
-function displayInsights(insights) {
+async function displayInsights(insights) {
     const container = document.getElementById('insights-content');
     const monthName = getCurrentMonthName();
 
+    // Fetch budget data for trend chart
+    let budgetData = {};
+    try {
+        const { data, error } = await supabase
+            .from('user_budgets')
+            .select('budget_month, budget_year, monthly_billed_budget, monthly_unbilled_budget')
+            .eq('user_id', currentUser.id);
+
+        if (!error && data) {
+            data.forEach(b => {
+                const key = `${b.budget_year}-${String(b.budget_month).padStart(2, '0')}`;
+                budgetData[key] = {
+                    billed: b.monthly_billed_budget || 0,
+                    unbilled: b.monthly_unbilled_budget || 0
+                };
+            });
+        }
+    } catch (error) {
+        console.error('Failed to fetch budget data:', error);
+    }
+
     container.innerHTML = `
+        <div style="margin-bottom: 2rem;">
+            <canvas id="monthlyTrendChart" style="max-height: 350px;"></canvas>
+        </div>
+
         <div style="margin-bottom: 2rem;"></div>
         <div class="insights-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
 
@@ -1845,7 +1888,7 @@ function displayInsights(insights) {
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;">${insights.totalExpenses} transactions</p>
             </div>
 
-            <div class="insight-card" style="padding: 1.5rem; background: ${insights.monthlyChange > 0? 'linear-gradient(135deg, #d4fc79, #96e6a1)' : 'linear-gradient(135deg, #fbc2eb, #a18cd1)'}; color: white; border-radius: 12px;">
+            <div class="insight-card" style="padding: 1.5rem; background: ${insights.monthlyChange > 0 ? 'linear-gradient(135deg, #d4fc79, #96e6a1)' : 'linear-gradient(135deg, #fbc2eb, #a18cd1)'}; color: white; border-radius: 12px;">
                 <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.9;">vs Last Month</h4>
                 <p style="margin: 0; font-size: 2rem; font-weight: 700; color: ${insights.monthlyChange > 0 ? '#ff4757' : '#39cc79'};"> ${insights.monthlyChange >= 0 ? '+' : ''}${insights.monthlyChange.toFixed(1)}% </p>
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; opacity: 0.8;"> ₹${insights.lastMonthTotal.toFixed(2)} last month </p>
@@ -1905,6 +1948,80 @@ function displayInsights(insights) {
 
         </div>
     `;
+
+    // Create monthly trend chart
+    const monthlyCtx = document.getElementById('monthlyTrendChart').getContext('2d');
+    const sortedMonths = Object.keys(insights.monthlyData)
+        .filter(key => insights.monthlyData[key].total > 0)
+        .sort()
+        .slice(-12); // Last 12 months with spending
+
+    const datasets = [
+        {
+            label: 'Billed Spending',
+            data: sortedMonths.map(m => insights.monthlyData[m].billed),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: false,
+            tension: 0.4
+        },
+        {
+            label: 'Unbilled Spending',
+            data: sortedMonths.map(m => insights.monthlyData[m].unbilled),
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: false,
+            tension: 0.4
+        }
+    ];
+
+    // Add budget lines if available
+    const hasBudgetData = sortedMonths.some(m => budgetData[m]);
+    if (hasBudgetData) {
+        datasets.push({
+            label: 'Billed Budget',
+            data: sortedMonths.map(m => budgetData[m]?.billed || null),
+            borderColor: '#34d399',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0
+        });
+        datasets.push({
+            label: 'Unbilled Budget',
+            data: sortedMonths.map(m => budgetData[m]?.unbilled || null),
+            borderColor: '#fca5a5',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0
+        });
+    }
+
+    new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+            labels: sortedMonths.map(m => {
+                const [y, mo] = m.split('-');
+                return new Date(y, mo - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            }),
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                title: { display: true, text: 'Monthly Spending Trend (Last 12 Months with Activity)', font: { size: 16 } },
+                legend: { display: true, position: 'bottom' }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: v => '₹' + v.toFixed(0) }
+                }
+            }
+        }
+    });
 }
 
 document.getElementById('delete-type-form').addEventListener('submit', async function (e) {
