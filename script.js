@@ -1879,6 +1879,7 @@ async function displayInsights(insights) {
             </div>
         </div>
 
+        <div style="margin-bottom: 2rem;"></div>
         <div class="insights-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
 
             <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
