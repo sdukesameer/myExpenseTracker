@@ -1858,17 +1858,8 @@ async function displayInsights(insights) {
             <canvas id="monthlyTrendChart" style="max-height: 350px;"></canvas>
         </div>
 
-        <!-- Chart Controls -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding: 1rem; background: #f9fafb; border-radius: 12px; flex-wrap: wrap; gap: 1rem;">
-            <!-- Chart Type Toggle -->
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <span style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-right: 0.5rem;">Chart Type:</span>
-                <button class="chart-toggle-btn active" data-type="line" onclick="switchInsightsChartType('line')" style="padding: 0.5rem 1rem; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">Line</button>
-                <button class="chart-toggle-btn" data-type="bubble" onclick="switchInsightsChartType('bubble')" style="padding: 0.5rem 1rem; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">Bubble</button>
-            </div>
-
-            <!-- Data View Radio Buttons -->
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <!-- Data View Radio Buttons Below Chart -->
+        <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding: 1rem; background: #f9fafb; border-radius: 12px; flex-wrap: wrap;">
                 <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; color: #374151;">
                     <input type="radio" name="insightsDataView" value="consolidated" checked onchange="updateInsightsChart()" style="cursor: pointer; width: 16px; height: 16px;">
                     Consolidated
@@ -1888,7 +1879,6 @@ async function displayInsights(insights) {
             </div>
         </div>
 
-        <div style="margin-bottom: 2rem;"></div>
         <div class="insights-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
 
             <div class="insight-card" style="padding: 1.5rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px;">
@@ -2034,122 +2024,6 @@ async function displayInsights(insights) {
     });
 }
 
-// Function to switch chart type
-function switchInsightsChartType(type) {
-    // Update button states
-    document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
-        if (btn.dataset.type === type) {
-            btn.classList.add('active');
-            btn.style.background = '#667eea';
-            btn.style.color = 'white';
-        } else {
-            btn.classList.remove('active');
-            btn.style.background = 'white';
-            btn.style.color = '#667eea';
-        }
-    });
-
-    // Update chart
-    if (window.insightsChart) {
-        if (type === 'bubble') {
-            // Convert to bubble chart
-            const { sortedMonths, monthlyData } = window.insightsChartData;
-            const selectedView = document.querySelector('input[name="insightsDataView"]:checked').value;
-
-            let bubbleData = [];
-
-            if (selectedView === 'consolidated') {
-                bubbleData = sortedMonths.map((m, i) => ({
-                    x: i + 1,
-                    y: monthlyData[m].total,
-                    r: Math.max(Math.sqrt(monthlyData[m].total) * 0.3, 5),
-                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                }));
-
-                window.insightsChart.data.datasets = [{
-                    label: 'Total Expenses',
-                    data: bubbleData,
-                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                    borderColor: '#667eea',
-                    borderWidth: 2
-                }];
-            } else if (selectedView === 'billed') {
-                bubbleData = sortedMonths.map((m, i) => ({
-                    x: i + 1,
-                    y: monthlyData[m].billed,
-                    r: Math.max(Math.sqrt(monthlyData[m].billed) * 0.3, 5),
-                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                }));
-
-                window.insightsChart.data.datasets = [{
-                    label: 'Billed Expenses',
-                    data: bubbleData,
-                    backgroundColor: 'rgba(16, 185, 129, 0.6)',
-                    borderColor: '#10b981',
-                    borderWidth: 2
-                }];
-            } else if (selectedView === 'unbilled') {
-                bubbleData = sortedMonths.map((m, i) => ({
-                    x: i + 1,
-                    y: monthlyData[m].unbilled,
-                    r: Math.max(Math.sqrt(monthlyData[m].unbilled) * 0.3, 5),
-                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                }));
-
-                window.insightsChart.data.datasets = [{
-                    label: 'Unbilled Expenses',
-                    data: bubbleData,
-                    backgroundColor: 'rgba(239, 68, 68, 0.6)',
-                    borderColor: '#ef4444',
-                    borderWidth: 2
-                }];
-            } else { // total
-                bubbleData = sortedMonths.map((m, i) => ({
-                    x: i + 1,
-                    y: monthlyData[m].total,
-                    r: Math.max(Math.sqrt(monthlyData[m].total) * 0.3, 5),
-                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                }));
-
-                window.insightsChart.data.datasets = [{
-                    label: 'Total Expenses',
-                    data: bubbleData,
-                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                    borderColor: '#667eea',
-                    borderWidth: 2
-                }];
-            }
-
-            window.insightsChart.config.type = 'bubble';
-            window.insightsChart.options.plugins.tooltip = {
-                callbacks: {
-                    label: function (context) {
-                        return `${context.raw.label}: ₹${context.raw.y.toFixed(2)}`;
-                    }
-                }
-            };
-            window.insightsChart.options.scales.x = {
-                title: { display: true, text: 'Month Index' },
-                ticks: { stepSize: 1 }
-            };
-        } else {
-            // Revert to line chart data structure
-            updateInsightsChart();
-            window.insightsChart.config.type = type;
-
-            window.insightsChart.data.datasets.forEach((dataset, index) => {
-                dataset.fill = type === 'line' && index === 0;
-            });
-
-            window.insightsChart.options.scales.x = {
-                title: { display: false }
-            };
-        }
-
-        window.insightsChart.update();
-    }
-}
-
 // Function to update chart based on selected data view
 function updateInsightsChart() {
     const selectedView = document.querySelector('input[name="insightsDataView"]:checked').value;
@@ -2157,7 +2031,6 @@ function updateInsightsChart() {
     if (!window.insightsChart || !window.insightsChartData) return;
 
     const { sortedMonths, monthlyData } = window.insightsChartData;
-    const currentType = window.insightsChart.config.type;
 
     let datasets = [];
 
@@ -2168,8 +2041,8 @@ function updateInsightsChart() {
                     label: 'Total Expenses',
                     data: sortedMonths.map(m => monthlyData[m].total),
                     borderColor: '#667eea',
-                    backgroundColor: currentType === 'bar' ? 'rgba(102, 126, 234, 0.7)' : 'rgba(102, 126, 234, 0.1)',
-                    fill: currentType === 'line',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
                     tension: 0.4,
                     borderWidth: 3
                 },
@@ -2177,7 +2050,7 @@ function updateInsightsChart() {
                     label: 'Billed Expenses',
                     data: sortedMonths.map(m => monthlyData[m].billed),
                     borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.5)',
                     fill: false,
                     tension: 0.4,
                     borderWidth: 2
@@ -2186,7 +2059,7 @@ function updateInsightsChart() {
                     label: 'Unbilled Expenses',
                     data: sortedMonths.map(m => monthlyData[m].unbilled),
                     borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
                     fill: false,
                     tension: 0.4,
                     borderWidth: 2
@@ -2195,45 +2068,39 @@ function updateInsightsChart() {
             break;
 
         case 'billed':
-            datasets = [
-                {
-                    label: 'Billed Expenses',
-                    data: sortedMonths.map(m => monthlyData[m].billed),
-                    borderColor: '#10b981',
-                    backgroundColor: currentType === 'bar' ? 'rgba(16, 185, 129, 0.7)' : 'rgba(16, 185, 129, 0.1)',
-                    fill: currentType === 'line',
-                    tension: 0.4,
-                    borderWidth: 3
-                }
-            ];
+            datasets = [{
+                label: 'Billed Expenses',
+                data: sortedMonths.map(m => monthlyData[m].billed),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 3
+            }];
             break;
 
         case 'unbilled':
-            datasets = [
-                {
-                    label: 'Unbilled Expenses',
-                    data: sortedMonths.map(m => monthlyData[m].unbilled),
-                    borderColor: '#ef4444',
-                    backgroundColor: currentType === 'bar' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.1)',
-                    fill: currentType === 'line',
-                    tension: 0.4,
-                    borderWidth: 3
-                }
-            ];
+            datasets = [{
+                label: 'Unbilled Expenses',
+                data: sortedMonths.map(m => monthlyData[m].unbilled),
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 3
+            }];
             break;
 
         case 'total':
-            datasets = [
-                {
-                    label: 'Total Expenses',
-                    data: sortedMonths.map(m => monthlyData[m].total),
-                    borderColor: '#667eea',
-                    backgroundColor: currentType === 'bar' ? 'rgba(102, 126, 234, 0.7)' : 'rgba(102, 126, 234, 0.1)',
-                    fill: currentType === 'line',
-                    tension: 0.4,
-                    borderWidth: 3
-                }
-            ];
+            datasets = [{
+                label: 'Total Expenses',
+                data: sortedMonths.map(m => monthlyData[m].total),
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 3
+            }];
             break;
     }
 
