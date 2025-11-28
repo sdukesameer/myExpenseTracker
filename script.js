@@ -2003,7 +2003,7 @@ async function displayInsights(insights) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
             plugins: {
                 title: {
                     display: true,

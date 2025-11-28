@@ -1217,6 +1217,11 @@ body.loaded {
     .stat-card {
         padding: 1rem 0.75rem;
     }
+
+    #insights-modal .chart-container,
+    #insights-modal #monthlyTrendChart {
+        height: 420px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1239,4 +1244,14 @@ body.loaded {
     .password-actions .btn {
         width: 100%;
     }
+}
+
+#insights-modal .chart-container,
+#insights-modal #monthlyTrendChart {
+    height: 350px;
+}
+
+#insights-modal #monthlyTrendChart {
+    width: 100% !important;
+    max-width: 100%;
 }
