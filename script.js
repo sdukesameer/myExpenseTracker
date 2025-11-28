@@ -209,6 +209,16 @@ document.addEventListener('DOMContentLoaded', async function () {
     updateDateDisplay();
 });
 
+function hideDocsToggle() {
+    const docs = document.getElementById('docs-toggle');
+    if (docs) docs.style.display = 'none';
+}
+
+function showDocsToggle() {
+    const docs = document.getElementById('docs-toggle');
+    if (docs) docs.style.display = 'flex'; // matches its existing flex styles
+}
+
 // Authentication functions
 function showSignIn() {
     hideAllForms();
@@ -1746,11 +1756,13 @@ function performSearch() {
 // Add spending insights function
 function showInsightsModal() {
     document.getElementById('insights-modal').style.display = 'block';
+    hideDocsToggle();
     loadSpendingInsights();
 }
 
 function closeInsightsModal() {
     document.getElementById('insights-modal').style.display = 'none';
+    showDocsToggle();
 }
 
 // Add insights calculation
