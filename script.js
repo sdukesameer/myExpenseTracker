@@ -463,8 +463,8 @@ async function handleChangePassword(e) {
 
 function showChangePassword() {
     document.getElementById('change-password-modal').style.display = 'block';
-    document.getElementById('current-password').focus();
     hideLandingIcons();
+    document.getElementById('current-password').focus();
 }
 
 function closeChangePasswordModal() {
