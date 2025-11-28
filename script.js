@@ -1853,27 +1853,6 @@ async function displayInsights(insights) {
     const container = document.getElementById('insights-content');
     const monthName = getCurrentMonthName();
 
-    // Fetch budget data for trend chart
-    let budgetData = {};
-    try {
-        const { data, error } = await supabase
-            .from('user_budgets')
-            .select('budget_month, budget_year, monthly_billed_budget, monthly_unbilled_budget')
-            .eq('user_id', currentUser.id);
-
-        if (!error && data) {
-            data.forEach(b => {
-                const key = `${b.budget_year}-${String(b.budget_month).padStart(2, '0')}`;
-                budgetData[key] = {
-                    billed: b.monthly_billed_budget || 0,
-                    unbilled: b.monthly_unbilled_budget || 0
-                };
-            });
-        }
-    } catch (error) {
-        console.error('Failed to fetch budget data:', error);
-    }
-
     container.innerHTML = `
         <div style="margin-bottom: 2rem;">
             <canvas id="monthlyTrendChart" style="max-height: 350px;"></canvas>
@@ -1949,7 +1928,7 @@ async function displayInsights(insights) {
         </div>
     `;
 
-    // Create monthly trend chart
+    // Create monthly trend chart - showing only total expenses
     const monthlyCtx = document.getElementById('monthlyTrendChart').getContext('2d');
     const sortedMonths = Object.keys(insights.monthlyData)
         .filter(key => insights.monthlyData[key].total > 0)
@@ -1958,45 +1937,33 @@ async function displayInsights(insights) {
 
     const datasets = [
         {
-            label: 'Billed Spending',
+            label: 'Total Expenses',
+            data: sortedMonths.map(m => insights.monthlyData[m].total),
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 3
+        },
+        {
+            label: 'Billed Expenses',
             data: sortedMonths.map(m => insights.monthlyData[m].billed),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             fill: false,
-            tension: 0.4
+            tension: 0.4,
+            borderWidth: 2
         },
         {
-            label: 'Unbilled Spending',
+            label: 'Unbilled Expenses',
             data: sortedMonths.map(m => insights.monthlyData[m].unbilled),
             borderColor: '#ef4444',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             fill: false,
-            tension: 0.4
+            tension: 0.4,
+            borderWidth: 2
         }
     ];
-
-    // Add budget lines if available
-    const hasBudgetData = sortedMonths.some(m => budgetData[m]);
-    if (hasBudgetData) {
-        datasets.push({
-            label: 'Billed Budget',
-            data: sortedMonths.map(m => budgetData[m]?.billed || null),
-            borderColor: '#34d399',
-            backgroundColor: 'transparent',
-            borderDash: [5, 5],
-            fill: false,
-            tension: 0
-        });
-        datasets.push({
-            label: 'Unbilled Budget',
-            data: sortedMonths.map(m => budgetData[m]?.unbilled || null),
-            borderColor: '#fca5a5',
-            backgroundColor: 'transparent',
-            borderDash: [5, 5],
-            fill: false,
-            tension: 0
-        });
-    }
 
     new Chart(monthlyCtx, {
         type: 'line',
@@ -2011,8 +1978,15 @@ async function displayInsights(insights) {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                title: { display: true, text: 'Monthly Spending Trend (Last 12 Months with Activity)', font: { size: 16 } },
-                legend: { display: true, position: 'bottom' }
+                title: {
+                    display: true,
+                    text: 'Monthly Spending Trend (Last 12 Months with Activity)',
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                }
             },
             scales: {
                 y: {
