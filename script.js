@@ -484,7 +484,7 @@ function closeChangePasswordModal() {
     if (instructionText) {
         instructionText.remove();
     }
-    hideLandingIcons();
+    showLandingIcons();
 }
 
 // Replace the existing logout function
@@ -2869,7 +2869,6 @@ window.onclick = function (event) {
     if (event.target === document.getElementById('insights-modal')) {
         closeInsightsModal();
     }
-
 }
 
 function toggleFormBilling() {
