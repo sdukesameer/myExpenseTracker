@@ -209,25 +209,35 @@ document.addEventListener('DOMContentLoaded', async function () {
     updateDateDisplay();
 });
 
-function hideDocsToggle() {
+function hideLandingIcons() {
+    // Docs icon
     const docs = document.getElementById('docs-toggle');
     if (docs) docs.style.display = 'none';
+
+    // Theme button (adjust selector if needed)
+    const themeBtn = document.querySelector('.theme-toggle');
+    if (themeBtn) themeBtn.style.display = 'none';
 }
 
-function showDocsToggle() {
+function showLandingIcons() {
     const docs = document.getElementById('docs-toggle');
-    if (docs) docs.style.display = 'flex'; // matches its existing flex styles
+    if (docs) docs.style.display = 'flex'; // or 'block' based on your CSS
+
+    const themeBtn = document.querySelector('.theme-toggle');
+    if (themeBtn) themeBtn.style.display = 'flex';
 }
 
 // Authentication functions
 function showSignIn() {
     hideAllForms();
     document.getElementById('signin-form').classList.remove('hidden');
+    showLandingIcons();
 }
 
 function showSignUp() {
     hideAllForms();
     document.getElementById('signup-form').classList.remove('hidden');
+    showLandingIcons();
 }
 
 async function showForgotPassword() {
@@ -241,6 +251,7 @@ async function showForgotPassword() {
 
     hideAllForms();
     document.getElementById('forgot-password-form').classList.remove('hidden');
+    showLandingIcons();
 }
 
 function hideAllForms() {
@@ -453,6 +464,7 @@ async function handleChangePassword(e) {
 function showChangePassword() {
     document.getElementById('change-password-modal').style.display = 'block';
     document.getElementById('current-password').focus();
+    hideLandingIcons();
 }
 
 function closeChangePasswordModal() {
@@ -472,6 +484,7 @@ function closeChangePasswordModal() {
     if (instructionText) {
         instructionText.remove();
     }
+    hideLandingIcons();
 }
 
 // Replace the existing logout function
@@ -525,6 +538,7 @@ async function showDashboard() {
 
     hideAllForms();
     document.getElementById('dashboard').style.display = 'block';
+    showLandingIcons();
 
     const displayName = currentUser.user_metadata?.display_name ||
         currentUser.user_metadata?.name ||
@@ -948,12 +962,14 @@ async function updateStatistics() {
 function showAddTypeModal() {
     document.getElementById('add-type-modal').style.display = 'block';
     document.getElementById('new-type').focus();
+    hideLandingIcons();
 }
 
 function closeAddTypeModal() {
     document.getElementById('add-type-modal').style.display = 'none';
     document.getElementById('add-type-form').reset();
     document.getElementById('type-alert').innerHTML = '';
+    showLandingIcons();
 }
 
 async function handleAddType(e) {
@@ -1002,6 +1018,7 @@ function setBudget() {
     document.getElementById('budget-modal').style.display = 'block';
     // Load current month's budget specifically
     loadCurrentMonthBudget();
+    hideLandingIcons();
 }
 
 async function loadCurrentMonthBudget() {
@@ -1023,6 +1040,7 @@ async function loadCurrentMonthBudget() {
 
 function closeBudgetModal() {
     document.getElementById('budget-modal').style.display = 'none';
+    showLandingIcons();
 }
 
 async function updateBudgetDisplay() {
@@ -1145,6 +1163,8 @@ function showVisualizationModal() {
     loadTypesForFilter();
 
     applyDateFilter();
+
+    hideLandingIcons();
 }
 
 // Add new function
@@ -1180,6 +1200,7 @@ function closeVisualizationModal() {
     // Reset billing toggle tracking
     editedExpenses.clear();
     expenseEdits = {};
+    showLandingIcons();
 }
 
 async function applyDateFilter() {
@@ -1633,6 +1654,7 @@ let expenseEdits = {};
 // Delete type functions
 function showDeleteTypeModal() {
     document.getElementById('delete-type-modal').style.display = 'block';
+    hideLandingIcons();
 
     // Auto-select the current type if one is selected
     const currentType = document.getElementById('type').value;
@@ -1648,6 +1670,7 @@ function closeDeleteTypeModal() {
     document.getElementById('delete-type-modal').style.display = 'none';
     document.getElementById('delete-type-form').reset();
     document.getElementById('delete-type-alert').innerHTML = '';
+    hideLandingIcons();
 }
 
 async function loadTypesForDeletion() {
@@ -1756,13 +1779,13 @@ function performSearch() {
 // Add spending insights function
 function showInsightsModal() {
     document.getElementById('insights-modal').style.display = 'block';
-    hideDocsToggle();
     loadSpendingInsights();
+    hideLandingIcons();
 }
 
 function closeInsightsModal() {
     document.getElementById('insights-modal').style.display = 'none';
-    showDocsToggle();
+    showLandingIcons();
 }
 
 // Add insights calculation
@@ -2184,12 +2207,14 @@ function showEditTypeModal() {
             document.getElementById('edit-type-name').value = currentType;
         }
     });
+    hideLandingIcons();
 }
 
 function closeEditTypeModal() {
     document.getElementById('edit-type-modal').style.display = 'none';
     document.getElementById('edit-type-form').reset();
     document.getElementById('edit-type-alert').innerHTML = '';
+    showLandingIcons();
 }
 
 function populateEditField() {
@@ -2620,6 +2645,7 @@ function showEditProfile() {
     document.getElementById('save-profile-btn').style.display = 'none';
 
     document.getElementById('edit-profile-modal').style.display = 'block';
+    hideLandingIcons();
 
     // Populate current values fresh
     const displayName = currentUser.user_metadata?.display_name ||
@@ -2648,6 +2674,7 @@ function closeEditProfileModal() {
     document.getElementById('edit-profile-form').reset();
     document.getElementById('edit-profile-alert').innerHTML = '';
     document.getElementById('save-profile-btn').style.display = 'none';
+    showLandingIcons();
 }
 
 function checkProfileChanges() {
