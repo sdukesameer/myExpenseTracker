@@ -262,6 +262,17 @@ function hideAllForms() {
     document.getElementById('dashboard').style.display = 'none';
 }
 
+// Demo login function
+async function demoLogin() {
+    const emailInput = document.getElementById('signin-email');
+    const passInput = document.getElementById('signin-password');
+
+    emailInput.value = "test.expenses@yopmail.com";
+    passInput.value = "123456";
+
+    await handleSignIn(new Event("submit"));
+}
+
 async function handleSignIn(e) {
     e.preventDefault();
     const emailField = document.getElementById('signin-email');
