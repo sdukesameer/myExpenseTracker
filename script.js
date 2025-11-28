@@ -1864,7 +1864,7 @@ async function displayInsights(insights) {
             <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <span style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-right: 0.5rem;">Chart Type:</span>
                 <button class="chart-toggle-btn active" data-type="line" onclick="switchInsightsChartType('line')" style="padding: 0.5rem 1rem; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">Line</button>
-                <button class="chart-toggle-btn" data-type="bar" onclick="switchInsightsChartType('bar')" style="padding: 0.5rem 1rem; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">Bar</button>
+                <button class="chart-toggle-btn" data-type="bubble" onclick="switchInsightsChartType('bubble')" style="padding: 0.5rem 1rem; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">Bubble</button>
             </div>
 
             <!-- Data View Radio Buttons -->
@@ -2051,16 +2051,100 @@ function switchInsightsChartType(type) {
 
     // Update chart
     if (window.insightsChart) {
-        window.insightsChart.config.type = type;
+        if (type === 'bubble') {
+            // Convert to bubble chart
+            const { sortedMonths, monthlyData } = window.insightsChartData;
+            const selectedView = document.querySelector('input[name="insightsDataView"]:checked').value;
 
-        // Adjust fill property based on chart type
-        window.insightsChart.data.datasets.forEach((dataset, index) => {
-            if (type === 'bar') {
-                dataset.fill = false;
-            } else {
-                dataset.fill = index === 0; // Only fill the first dataset (Total) in line chart
+            let bubbleData = [];
+
+            if (selectedView === 'consolidated') {
+                bubbleData = sortedMonths.map((m, i) => ({
+                    x: i + 1,
+                    y: monthlyData[m].total,
+                    r: Math.max(Math.sqrt(monthlyData[m].total) * 0.3, 5),
+                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                }));
+
+                window.insightsChart.data.datasets = [{
+                    label: 'Total Expenses',
+                    data: bubbleData,
+                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                    borderColor: '#667eea',
+                    borderWidth: 2
+                }];
+            } else if (selectedView === 'billed') {
+                bubbleData = sortedMonths.map((m, i) => ({
+                    x: i + 1,
+                    y: monthlyData[m].billed,
+                    r: Math.max(Math.sqrt(monthlyData[m].billed) * 0.3, 5),
+                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                }));
+
+                window.insightsChart.data.datasets = [{
+                    label: 'Billed Expenses',
+                    data: bubbleData,
+                    backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                    borderColor: '#10b981',
+                    borderWidth: 2
+                }];
+            } else if (selectedView === 'unbilled') {
+                bubbleData = sortedMonths.map((m, i) => ({
+                    x: i + 1,
+                    y: monthlyData[m].unbilled,
+                    r: Math.max(Math.sqrt(monthlyData[m].unbilled) * 0.3, 5),
+                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                }));
+
+                window.insightsChart.data.datasets = [{
+                    label: 'Unbilled Expenses',
+                    data: bubbleData,
+                    backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                    borderColor: '#ef4444',
+                    borderWidth: 2
+                }];
+            } else { // total
+                bubbleData = sortedMonths.map((m, i) => ({
+                    x: i + 1,
+                    y: monthlyData[m].total,
+                    r: Math.max(Math.sqrt(monthlyData[m].total) * 0.3, 5),
+                    label: new Date(m).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                }));
+
+                window.insightsChart.data.datasets = [{
+                    label: 'Total Expenses',
+                    data: bubbleData,
+                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                    borderColor: '#667eea',
+                    borderWidth: 2
+                }];
             }
-        });
+
+            window.insightsChart.config.type = 'bubble';
+            window.insightsChart.options.plugins.tooltip = {
+                callbacks: {
+                    label: function (context) {
+                        return `${context.raw.label}: ₹${context.raw.y.toFixed(2)}`;
+                    }
+                }
+            };
+            window.insightsChart.options.scales.x = {
+                title: { display: true, text: 'Month Index' },
+                ticks: { stepSize: 1 }
+            };
+        } else {
+            // Revert to line chart data structure
+            updateInsightsChart();
+            window.insightsChart.config.type = type;
+
+            window.insightsChart.data.datasets.forEach((dataset, index) => {
+                dataset.fill = type === 'line' && index === 0;
+            });
+
+            window.insightsChart.options.scales.x = {
+                title: { display: false }
+            };
+        }
 
         window.insightsChart.update();
     }
