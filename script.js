@@ -7,6 +7,7 @@ let budgetWarningShown = { billed: false, unbilled: false };
 let isPasswordResetFlow = false;
 let monthlyBilledBudget = 0;
 let monthlyUnbilledBudget = 0;
+let supabase;
 
 // Initialize Supabase - FIXED: Remove import.meta usage
 const supabaseUrl = '%VITE_SUPABASE_URL%';
@@ -16,7 +17,7 @@ if (!supabaseUrl || !supabaseKey) {
     console.error('Supabase credentials not found. Please check environment variables.');
 }
 
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // FIXED: Initialize theme toggle variables at the top
 let isDarkMode = localStorage.getItem('darkMode') === 'true';
