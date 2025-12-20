@@ -10,8 +10,8 @@ let monthlyUnbilledBudget = 0;
 let supabase;
 
 // Initialize Supabase - FIXED: Remove import.meta usage
-const supabaseUrl = '%VITE_SUPABASE_URL%';
-const supabaseKey = '%VITE_SUPABASE_ANON_KEY%';
+const supabaseUrl = 'https://hjjpjcqzslqikopsbxwh.supabase.co';
+const supabaseKey = 'sb_publishable_7dJnWY2k5asHPS1qpABHjw_MeQXUpIa';
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('Supabase credentials not found. Please check environment variables.');
