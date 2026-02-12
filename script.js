@@ -1456,118 +1456,136 @@ function prepareBubbleChartData() {
 }
 
 async function exportToCSV() {
-    // Use current filtered expenses instead of re-filtering
-    if (filteredExpenses.length === 0) {
-        alert('No expenses to export for the selected date range.');
-        return;
-    }
-
     // Get CURRENT filter values from the form
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     const billingFilter = document.getElementById('billing-filter').value;
     const typeFilter = document.getElementById('type-filter').value;
 
-    // Generate filename based on CURRENT filters
-    let filename = 'expenses';
+    // Apply filters to get the exact data to export
+    try {
+        let query = supabase.from('expenses').select('*');
 
-    if (startDate && endDate) {
-        if (startDate === endDate) {
-            filename += `_${startDate}`;
-        } else {
-            filename += `_${startDate}_to_${endDate}`;
+        if (startDate) query = query.gte('date', startDate);
+        if (endDate) query = query.lte('date', endDate);
+        if (billingFilter === 'billed') query = query.eq('billed', true);
+        if (billingFilter === 'unbilled') query = query.eq('billed', false);
+        if (typeFilter !== 'all') query = query.eq('type', typeFilter);
+
+        const { data, error } = await query.order('date', { ascending: false });
+        if (error) throw error;
+
+        const expensesToExport = data || [];
+
+        if (expensesToExport.length === 0) {
+            alert('No expenses to export for the selected filters.');
+            return;
         }
-    } else if (startDate) {
-        filename += `_from_${startDate}`;
-    } else if (endDate) {
-        filename += `_until_${endDate}`;
-    }
 
-    if (typeFilter !== 'all') {
-        filename += `_${typeFilter}`;
-    }
+        // Generate filename based on CURRENT filters
+        let filename = 'expenses';
 
-    if (billingFilter === 'billed') {
-        filename += '_billed';
-    } else if (billingFilter === 'unbilled') {
-        filename += '_unbilled';
-    } else {
-        filename += '_both';
-    }
-
-    filename += '.csv';
-
-    // Rest of the function remains the same...
-    const startMonth = startDate ? new Date(startDate).getMonth() + 1 : null;
-    const startYear = startDate ? new Date(startDate).getFullYear() : null;
-    const endMonth = endDate ? new Date(endDate).getMonth() + 1 : null;
-    const endYear = endDate ? new Date(endDate).getFullYear() : null;
-
-    const isSingleMonthExport = startMonth === endMonth && startYear === endYear && startMonth && endMonth;
-
-    const headers = ['Date', 'Type', 'Amount', 'Note', 'Billed'];
-    const rows = filteredExpenses.map(expense => [
-        expense.date,
-        `"${expense.type}"`,
-        expense.amount,
-        `"${expense.note || ''}"`,
-        expense.billed ? 'Yes' : 'No'
-    ]);
-
-    const total = filteredExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
-    rows.push(['', '', '', '', '']);
-    rows.push(['', '', 'TOTAL:', `Rs. ${total.toFixed(2)}`, '']);
-
-    const hasBilled = filteredExpenses.some(e => e.billed);
-    const hasUnbilled = filteredExpenses.some(e => !e.billed);
-
-    if (isSingleMonthExport) {
-        try {
-            const { data: budgetData } = await supabase
-                .from('user_budgets')
-                .select('monthly_billed_budget, monthly_unbilled_budget')
-                .eq('user_id', currentUser.id)
-                .eq('budget_month', startMonth)
-                .eq('budget_year', startYear)
-                .single();
-
-            const exportBilledBudget = budgetData?.monthly_billed_budget || 0;
-            const exportUnbilledBudget = budgetData?.monthly_unbilled_budget || 0;
-
-            if (exportBilledBudget > 0 || exportUnbilledBudget > 0) {
-                const billedSpent = filteredExpenses.filter(e => e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
-                const unbilledSpent = filteredExpenses.filter(e => !e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
-
-                rows.push(['', '', '', '', '']);
-
-                if (hasBilled && exportBilledBudget > 0) {
-                    rows.push(['', '', 'BILLED BUDGET:', `Rs. ${exportBilledBudget.toFixed(2)}`, '']);
-                    rows.push(['', '', 'BILLED SPENT:', `Rs. ${billedSpent.toFixed(2)}`, '']);
-                    rows.push(['', '', 'BILLED REMAINING:', `Rs. ${(exportBilledBudget - billedSpent).toFixed(2)}`, '']);
-                    if (hasUnbilled) rows.push(['', '', '', '', '']);
-                }
-
-                if (hasUnbilled && exportUnbilledBudget > 0) {
-                    rows.push(['', '', 'UNBILLED BUDGET:', `Rs. ${exportUnbilledBudget.toFixed(2)}`, '']);
-                    rows.push(['', '', 'UNBILLED SPENT:', `Rs. ${unbilledSpent.toFixed(2)}`, '']);
-                    rows.push(['', '', 'UNBILLED REMAINING:', `Rs. ${(exportUnbilledBudget - unbilledSpent).toFixed(2)}`, '']);
-                }
+        if (startDate && endDate) {
+            if (startDate === endDate) {
+                filename += `_${startDate}`;
+            } else {
+                filename += `_${startDate}_to_${endDate}`;
             }
-        } catch (error) {
-            console.error('Failed to fetch budget for export month:', error);
+        } else if (startDate) {
+            filename += `_from_${startDate}`;
+        } else if (endDate) {
+            filename += `_until_${endDate}`;
         }
-    }
 
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        if (typeFilter !== 'all') {
+            filename += `_${typeFilter}`;
+        }
+
+        if (billingFilter === 'billed') {
+            filename += '_billed';
+        } else if (billingFilter === 'unbilled') {
+            filename += '_unbilled';
+        } else {
+            filename += '_both';
+        }
+
+        filename += '.csv';
+
+        const startMonth = startDate ? new Date(startDate).getMonth() + 1 : null;
+        const startYear = startDate ? new Date(startDate).getFullYear() : null;
+        const endMonth = endDate ? new Date(endDate).getMonth() + 1 : null;
+        const endYear = endDate ? new Date(endDate).getFullYear() : null;
+
+        const isSingleMonthExport = startMonth === endMonth && startYear === endYear && startMonth && endMonth;
+
+        const headers = ['Date', 'Type', 'Amount', 'Note', 'Billed'];
+        const rows = expensesToExport.map(expense => [
+            expense.date,
+            `"${expense.type}"`,
+            expense.amount,
+            `"${expense.note || ''}"`,
+            expense.billed ? 'Yes' : 'No'
+        ]);
+
+        const total = expensesToExport.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
+        rows.push(['', '', '', '', '']);
+        rows.push(['', '', 'TOTAL:', `Rs. ${total.toFixed(2)}`, '']);
+
+        const hasBilled = expensesToExport.some(e => e.billed);
+        const hasUnbilled = expensesToExport.some(e => !e.billed);
+
+        if (isSingleMonthExport) {
+            try {
+                const { data: budgetData } = await supabase
+                    .from('user_budgets')
+                    .select('monthly_billed_budget, monthly_unbilled_budget')
+                    .eq('user_id', currentUser.id)
+                    .eq('budget_month', startMonth)
+                    .eq('budget_year', startYear)
+                    .single();
+
+                const exportBilledBudget = budgetData?.monthly_billed_budget || 0;
+                const exportUnbilledBudget = budgetData?.monthly_unbilled_budget || 0;
+
+                if (exportBilledBudget > 0 || exportUnbilledBudget > 0) {
+                    const billedSpent = expensesToExport.filter(e => e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                    const unbilledSpent = expensesToExport.filter(e => !e.billed).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+
+                    rows.push(['', '', '', '', '']);
+
+                    if (hasBilled && exportBilledBudget > 0) {
+                        rows.push(['', '', 'BILLED BUDGET:', `Rs. ${exportBilledBudget.toFixed(2)}`, '']);
+                        rows.push(['', '', 'BILLED SPENT:', `Rs. ${billedSpent.toFixed(2)}`, '']);
+                        rows.push(['', '', 'BILLED REMAINING:', `Rs. ${(exportBilledBudget - billedSpent).toFixed(2)}`, '']);
+                        if (hasUnbilled) rows.push(['', '', '', '', '']);
+                    }
+
+                    if (hasUnbilled && exportUnbilledBudget > 0) {
+                        rows.push(['', '', 'UNBILLED BUDGET:', `Rs. ${exportUnbilledBudget.toFixed(2)}`, '']);
+                        rows.push(['', '', 'UNBILLED SPENT:', `Rs. ${unbilledSpent.toFixed(2)}`, '']);
+                        rows.push(['', '', 'UNBILLED REMAINING:', `Rs. ${(exportUnbilledBudget - unbilledSpent).toFixed(2)}`, '']);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch budget for export month:', error);
+            }
+        }
+
+        const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+    } catch (error) {
+        console.error('Export failed:', error);
+        alert('Failed to export expenses: ' + error.message);
+    }
 }
 
 function showExpenseList() {
@@ -1902,9 +1920,36 @@ function calculateInsights(expenses) {
     };
 }
 
+// Helper functions for dynamic Y-axis scaling
+function calculateStepSize(maxValue) {
+    if (maxValue === 0) return 100;
+
+    const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue)));
+    const normalized = maxValue / magnitude;
+
+    let step;
+    if (normalized <= 1) step = magnitude / 10;
+    else if (normalized <= 2) step = magnitude / 5;
+    else if (normalized <= 5) step = magnitude / 2;
+    else step = magnitude;
+
+    return step;
+}
+
+function calculateMaxValue(maxValue) {
+    if (maxValue === 0) return 1000;
+
+    const step = calculateStepSize(maxValue);
+    return Math.ceil(maxValue / step) * step;
+}
+
 async function displayInsights(insights) {
     const container = document.getElementById('insights-content');
     const monthName = getCurrentMonthName();
+
+    // IMPORTANT: Define currentDayOfMonth at the very beginning
+    const today = new Date();
+    const currentDayOfMonth = today.getDate();
 
     container.innerHTML = `
         <div style="margin-bottom: 1rem;">
@@ -1934,7 +1979,34 @@ async function displayInsights(insights) {
 
         <!-- NEW: Velocity Comparison Chart -->
         <div style="margin-bottom: 1rem; margin-top: 2rem;">
-            <canvas id="velocityChart" style="max-height: 350px;"></canvas>
+            <div class="chart-container">
+                <canvas id="velocityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart Type Toggle (Controls Both Charts) -->
+        <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding: 1rem; background: #f9fafb; border-radius: 12px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; color: #374151;">
+                <input type="radio" name="velocityChartType" value="bar" checked onchange="updateBothChartTypes()" style="cursor: pointer; width: 16px; height: 16px;">
+                Bar Chart
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; color: #374151;">
+                <input type="radio" name="velocityChartType" value="line" onchange="updateBothChartTypes()" style="cursor: pointer; width: 16px; height: 16px;">
+                Line Chart
+            </label>
+        </div>
+
+        <!-- Day Range Slider -->
+        <div style="margin-top: 2rem; padding: 1.5rem; background: #f9fafb; border-radius: 12px;">
+            <h4 style="margin-bottom: 1rem; color: #374151; text-align: center;">Compare Spending by Day Range</h4>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span style="font-size: 0.9rem; font-weight: 600; color: #667eea; min-width: 80px;">Day 1 to Day</span>
+                <input type="range" id="velocity-day-slider" min="1" max="31" value="${currentDayOfMonth}"
+                       oninput="updateVelocityByDay(this.value)"
+                       style="flex: 1; height: 8px; border-radius: 5px; background: linear-gradient(to right, #667eea 0%, #764ba2 100%); outline: none; -webkit-appearance: none;">
+                <span id="velocity-day-display" style="font-size: 1.1rem; font-weight: 700; color: #667eea; min-width: 40px; text-align: center;">${currentDayOfMonth}</span>
+            </div>
+            <p style="margin-top: 0.5rem; text-align: center; font-size: 0.8rem; color: #6b7280;">Slide to compare spending up to different days of each month</p>
         </div>
 
         <div style="margin-bottom: 2rem;"></div>
@@ -2051,7 +2123,7 @@ async function displayInsights(insights) {
     ];
 
     window.insightsChart = new Chart(monthlyCtx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: sortedMonths.map(m => {
                 const [y, mo] = m.split('-');
@@ -2076,7 +2148,12 @@ async function displayInsights(insights) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { callback: v => '₹' + v.toFixed(0) }
+                    ticks: {
+                        callback: v => '₹' + v.toFixed(0),
+                        stepSize: calculateStepSize(Math.max(...sortedMonths.map(m => insights.monthlyData[m].total))),
+                        maxTicksLimit: 11
+                    },
+                    max: calculateMaxValue(Math.max(...sortedMonths.map(m => insights.monthlyData[m].total)))
                 }
             }
         }
@@ -2084,21 +2161,28 @@ async function displayInsights(insights) {
 
     // Create velocity comparison chart
     const velocityCtx = document.getElementById('velocityChart').getContext('2d');
-    const today = new Date();
-    const currentDayOfMonth = today.getDate();
 
     // Get last 6 months data up to current day
     const velocityData = [];
     const velocityLabels = [];
 
+    // Get all expenses data for velocity calculation
+    const { data: allExpenses, error: velocityError } = await supabase
+        .from('expenses')
+        .select('amount, date')
+        .order('date', { ascending: false });
+
+    if (velocityError) {
+        console.error('Failed to load expenses for velocity:', velocityError);
+    }
+
     for (let i = 5; i >= 0; i--) {
         const checkDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
         const year = checkDate.getFullYear();
         const month = checkDate.getMonth() + 1;
-        const key = `${year}-${String(month).padStart(2, '0')}`;
 
         // Calculate spending up to current day of that month
-        const monthExpenses = allExpensesCache.filter(e => {
+        const monthExpenses = (allExpenses || []).filter(e => {
             const expDate = new Date(e.date);
             return expDate.getFullYear() === year &&
                    expDate.getMonth() + 1 === month &&
@@ -2110,22 +2194,34 @@ async function displayInsights(insights) {
         velocityLabels.push(checkDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
     }
 
+    // Store velocity data globally for chart updates
+    window.velocityChartData = {
+        labels: velocityLabels,
+        data: velocityData,
+        currentDay: currentDayOfMonth
+    };
+
+    // Get initial chart type (default to bar)
+    const velocityChartType = 'bar';
+
     window.velocityChart = new Chart(velocityCtx, {
-        type: 'bar',
+        type: velocityChartType,
         data: {
             labels: velocityLabels,
             datasets: [{
                 label: `Spending up to Day ${currentDayOfMonth}`,
                 data: velocityData,
                 backgroundColor: velocityData.map((val, idx) => {
-                    if (idx === velocityData.length - 1) return 'rgba(239, 68, 68, 0.7)'; // Current month in red
+                    if (idx === velocityData.length - 1) return 'rgba(239, 68, 68, 0.7)';
                     return 'rgba(102, 126, 234, 0.7)';
                 }),
                 borderColor: velocityData.map((val, idx) => {
                     if (idx === velocityData.length - 1) return '#ef4444';
                     return '#667eea';
                 }),
-                borderWidth: 2
+                borderWidth: 2,
+                tension: 0.4,
+                fill: velocityChartType === 'line'
             }]
         },
         options: {
@@ -2157,7 +2253,12 @@ async function displayInsights(insights) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { callback: v => '₹' + v.toFixed(0) }
+                    ticks: {
+                        callback: v => '₹' + v.toFixed(0),
+                        stepSize: calculateStepSize(Math.max(...velocityData)),
+                        maxTicksLimit: 11
+                    },
+                    max: calculateMaxValue(Math.max(...velocityData))
                 }
             }
         }
@@ -2244,13 +2345,352 @@ function updateInsightsChart() {
             break;
     }
 
-    window.insightsChart.data.datasets = datasets;
-    window.insightsChart.update();
+    const chartType = document.querySelector('input[name="velocityChartType"]:checked')?.value || 'line';
 
-    // Update velocity chart too
-    if (window.velocityChart) {
-        window.velocityChart.update();
+    window.insightsChart.destroy();
+
+    const monthlyCtx = document.getElementById('monthlyTrendChart').getContext('2d');
+
+    window.insightsChart = new Chart(monthlyCtx, {
+        type: chartType,
+        data: {
+            labels: sortedMonths.map(m => {
+                const [y, mo] = m.split('-');
+                return new Date(y, mo - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            }),
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Monthly Spending Trend (Last 12 Months with Activity)',
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: v => '₹' + v.toFixed(0),
+                        stepSize: calculateStepSize(Math.max(...datasets.flatMap(d => d.data))),
+                        maxTicksLimit: 11
+                    },
+                    max: calculateMaxValue(Math.max(...datasets.flatMap(d => d.data)))
+                }
+            }
+        }
+    });
+}
+
+// Function to update BOTH charts based on selected type
+function updateBothChartTypes() {
+    const selectedType = document.querySelector('input[name="velocityChartType"]:checked').value;
+
+    // Update velocity chart
+    if (window.velocityChart && window.velocityChartData) {
+        const { labels, data, currentDay } = window.velocityChartData;
+
+        window.velocityChart.destroy();
+
+        const velocityCtx = document.getElementById('velocityChart').getContext('2d');
+
+        window.velocityChart = new Chart(velocityCtx, {
+            type: selectedType,
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `Spending up to Day ${currentDay}`,
+                    data: data,
+                    backgroundColor: data.map((val, idx) => {
+                        if (idx === data.length - 1) return 'rgba(239, 68, 68, 0.7)';
+                        return 'rgba(102, 126, 234, 0.7)';
+                    }),
+                    borderColor: data.map((val, idx) => {
+                        if (idx === data.length - 1) return '#ef4444';
+                        return '#667eea';
+                    }),
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: selectedType === 'line'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Spending Velocity - First ${currentDay} Days Comparison`,
+                        font: { size: 16 }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const percentChange = context.dataIndex > 0 ?
+                                    ((context.parsed.y - data[context.dataIndex - 1]) / data[context.dataIndex - 1] * 100) : 0;
+                                return [
+                                    `Amount: ₹${context.parsed.y.toFixed(2)}`,
+                                    context.dataIndex > 0 ? `Change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(1)}%` : ''
+                                ].filter(Boolean);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: v => '₹' + v.toFixed(0),
+                            stepSize: calculateStepSize(Math.max(...data)),
+                            maxTicksLimit: 11
+                        },
+                        max: calculateMaxValue(Math.max(...data))
+                    }
+                }
+            }
+        });
     }
+
+    // Update monthly insights chart
+    if (window.insightsChart && window.insightsChartData) {
+        const { sortedMonths, monthlyData } = window.insightsChartData;
+        const selectedView = document.querySelector('input[name="insightsDataView"]:checked').value;
+
+        let datasets = [];
+
+        switch (selectedView) {
+            case 'consolidated':
+                datasets = [
+                    {
+                        label: 'Total Expenses',
+                        data: sortedMonths.map(m => monthlyData[m].total),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: selectedType === 'line',
+                        tension: 0.4,
+                        borderWidth: 3
+                    },
+                    {
+                        label: 'Billed Expenses',
+                        data: sortedMonths.map(m => monthlyData[m].billed),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                        fill: false,
+                        tension: 0.4,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Unbilled Expenses',
+                        data: sortedMonths.map(m => monthlyData[m].unbilled),
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                        fill: false,
+                        tension: 0.4,
+                        borderWidth: 2
+                    }
+                ];
+                break;
+
+            case 'billed':
+                datasets = [{
+                    label: 'Billed Expenses',
+                    data: sortedMonths.map(m => monthlyData[m].billed),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    fill: selectedType === 'line',
+                    tension: 0.4,
+                    borderWidth: 3
+                }];
+                break;
+
+            case 'unbilled':
+                datasets = [{
+                    label: 'Unbilled Expenses',
+                    data: sortedMonths.map(m => monthlyData[m].unbilled),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    fill: selectedType === 'line',
+                    tension: 0.4,
+                    borderWidth: 3
+                }];
+                break;
+
+            case 'total':
+                datasets = [{
+                    label: 'Total Expenses',
+                    data: sortedMonths.map(m => monthlyData[m].total),
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                    fill: selectedType === 'line',
+                    tension: 0.4,
+                    borderWidth: 3
+                }];
+                break;
+        }
+
+        window.insightsChart.destroy();
+
+        const monthlyCtx = document.getElementById('monthlyTrendChart').getContext('2d');
+
+        window.insightsChart = new Chart(monthlyCtx, {
+            type: selectedType,
+            data: {
+                labels: sortedMonths.map(m => {
+                    const [y, mo] = m.split('-');
+                    return new Date(y, mo - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                }),
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Monthly Spending Trend (Last 12 Months with Activity)',
+                        font: { size: 16 }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => '₹' + v.toFixed(0) }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Function to update velocity chart based on day slider
+async function updateVelocityByDay(selectedDay) {
+    // Update display
+    document.getElementById('velocity-day-display').textContent = selectedDay;
+
+    if (!window.velocityChart) return;
+
+    // Get all expenses data for velocity calculation
+    const { data: allExpenses, error: velocityError } = await supabase
+        .from('expenses')
+        .select('amount, date')
+        .order('date', { ascending: false });
+
+    if (velocityError) {
+        console.error('Failed to load expenses for velocity:', velocityError);
+        return;
+    }
+
+    const today = new Date();
+    const velocityData = [];
+    const velocityLabels = [];
+
+    // Calculate spending up to selected day for last 6 months
+    for (let i = 5; i >= 0; i--) {
+        const checkDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const year = checkDate.getFullYear();
+        const month = checkDate.getMonth() + 1;
+
+        const monthExpenses = (allExpenses || []).filter(e => {
+            const expDate = new Date(e.date);
+            return expDate.getFullYear() === year &&
+                   expDate.getMonth() + 1 === month &&
+                   expDate.getDate() <= parseInt(selectedDay);
+        });
+
+        const total = monthExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        velocityData.push(total);
+        velocityLabels.push(checkDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+    }
+
+    // Update stored data
+    window.velocityChartData = {
+        labels: velocityLabels,
+        data: velocityData,
+        currentDay: parseInt(selectedDay)
+    };
+
+    // Get current chart type
+    const velocityChartType = document.querySelector('input[name="velocityChartType"]:checked')?.value || 'bar';
+
+    // Destroy and recreate chart
+    window.velocityChart.destroy();
+
+    const velocityCtx = document.getElementById('velocityChart').getContext('2d');
+
+    window.velocityChart = new Chart(velocityCtx, {
+        type: velocityChartType,
+        data: {
+            labels: velocityLabels,
+            datasets: [{
+                label: `Spending up to Day ${selectedDay}`,
+                data: velocityData,
+                backgroundColor: velocityData.map((val, idx) => {
+                    if (idx === velocityData.length - 1) return 'rgba(239, 68, 68, 0.7)';
+                    return 'rgba(102, 126, 234, 0.7)';
+                }),
+                borderColor: velocityData.map((val, idx) => {
+                    if (idx === velocityData.length - 1) return '#ef4444';
+                    return '#667eea';
+                }),
+                borderWidth: 2,
+                tension: 0.4,
+                fill: velocityChartType === 'line'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Spending Velocity - First ${selectedDay} Days Comparison`,
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const percentChange = context.dataIndex > 0 ?
+                                ((context.parsed.y - velocityData[context.dataIndex - 1]) / velocityData[context.dataIndex - 1] * 100) : 0;
+                            return [
+                                `Amount: ₹${context.parsed.y.toFixed(2)}`,
+                                context.dataIndex > 0 ? `Change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(1)}%` : ''
+                            ].filter(Boolean);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: v => '₹' + v.toFixed(0),
+                        stepSize: calculateStepSize(Math.max(...velocityData)),
+                        maxTicksLimit: 11
+                    },
+                    max: calculateMaxValue(Math.max(...velocityData))
+                }
+            }
+        }
+    });
 }
 
 document.getElementById('delete-type-form').addEventListener('submit', async function (e) {
