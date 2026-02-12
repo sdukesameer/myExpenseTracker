@@ -1456,17 +1456,19 @@ function prepareBubbleChartData() {
 }
 
 async function exportToCSV() {
+    // Use current filtered expenses instead of re-filtering
     if (filteredExpenses.length === 0) {
         alert('No expenses to export for the selected date range.');
         return;
     }
 
-    // Get date range for budget info
+    // Get CURRENT filter values from the form
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     const billingFilter = document.getElementById('billing-filter').value;
+    const typeFilter = document.getElementById('type-filter').value;
 
-    // Generate filename based on filters
+    // Generate filename based on CURRENT filters
     let filename = 'expenses';
 
     if (startDate && endDate) {
@@ -1481,6 +1483,10 @@ async function exportToCSV() {
         filename += `_until_${endDate}`;
     }
 
+    if (typeFilter !== 'all') {
+        filename += `_${typeFilter}`;
+    }
+
     if (billingFilter === 'billed') {
         filename += '_billed';
     } else if (billingFilter === 'unbilled') {
@@ -1491,7 +1497,7 @@ async function exportToCSV() {
 
     filename += '.csv';
 
-    // Check if the date range spans only one month
+    // Rest of the function remains the same...
     const startMonth = startDate ? new Date(startDate).getMonth() + 1 : null;
     const startYear = startDate ? new Date(startDate).getFullYear() : null;
     const endMonth = endDate ? new Date(endDate).getMonth() + 1 : null;
@@ -1508,21 +1514,15 @@ async function exportToCSV() {
         expense.billed ? 'Yes' : 'No'
     ]);
 
-    // Calculate total
     const total = filteredExpenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0);
-
-    // Add total row
     rows.push(['', '', '', '', '']);
     rows.push(['', '', 'TOTAL:', `Rs. ${total.toFixed(2)}`, '']);
 
-    // Check if export contains both billed and unbilled, or just one type
     const hasBilled = filteredExpenses.some(e => e.billed);
     const hasUnbilled = filteredExpenses.some(e => !e.billed);
 
-    // Only show budget info if it's a single month export
     if (isSingleMonthExport) {
         try {
-            // Fetch budget for the specific month
             const { data: budgetData } = await supabase
                 .from('user_budgets')
                 .select('monthly_billed_budget, monthly_unbilled_budget')
@@ -1540,15 +1540,13 @@ async function exportToCSV() {
 
                 rows.push(['', '', '', '', '']);
 
-                // Only add billed budget info if export has billed expenses and budget is set
                 if (hasBilled && exportBilledBudget > 0) {
                     rows.push(['', '', 'BILLED BUDGET:', `Rs. ${exportBilledBudget.toFixed(2)}`, '']);
                     rows.push(['', '', 'BILLED SPENT:', `Rs. ${billedSpent.toFixed(2)}`, '']);
                     rows.push(['', '', 'BILLED REMAINING:', `Rs. ${(exportBilledBudget - billedSpent).toFixed(2)}`, '']);
-                    if (hasUnbilled) rows.push(['', '', '', '', '']); // Add separator if both types
+                    if (hasUnbilled) rows.push(['', '', '', '', '']);
                 }
 
-                // Only add unbilled budget info if export has unbilled expenses and budget is set
                 if (hasUnbilled && exportUnbilledBudget > 0) {
                     rows.push(['', '', 'UNBILLED BUDGET:', `Rs. ${exportUnbilledBudget.toFixed(2)}`, '']);
                     rows.push(['', '', 'UNBILLED SPENT:', `Rs. ${unbilledSpent.toFixed(2)}`, '']);
@@ -1797,6 +1795,14 @@ function showInsightsModal() {
 
 function closeInsightsModal() {
     document.getElementById('insights-modal').style.display = 'none';
+    if (window.insightsChart) {
+        window.insightsChart.destroy();
+        window.insightsChart = null;
+    }
+    if (window.velocityChart) {
+        window.velocityChart.destroy();
+        window.velocityChart = null;
+    }
     showLandingIcons();
 }
 
@@ -1924,6 +1930,11 @@ async function displayInsights(insights) {
                     Total Only
                 </label>
             </div>
+        </div>
+
+        <!-- NEW: Velocity Comparison Chart -->
+        <div style="margin-bottom: 1rem; margin-top: 2rem;">
+            <canvas id="velocityChart" style="max-height: 350px;"></canvas>
         </div>
 
         <div style="margin-bottom: 2rem;"></div>
@@ -2070,6 +2081,87 @@ async function displayInsights(insights) {
             }
         }
     });
+
+    // Create velocity comparison chart
+    const velocityCtx = document.getElementById('velocityChart').getContext('2d');
+    const today = new Date();
+    const currentDayOfMonth = today.getDate();
+
+    // Get last 6 months data up to current day
+    const velocityData = [];
+    const velocityLabels = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const checkDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const year = checkDate.getFullYear();
+        const month = checkDate.getMonth() + 1;
+        const key = `${year}-${String(month).padStart(2, '0')}`;
+
+        // Calculate spending up to current day of that month
+        const monthExpenses = allExpensesCache.filter(e => {
+            const expDate = new Date(e.date);
+            return expDate.getFullYear() === year &&
+                   expDate.getMonth() + 1 === month &&
+                   expDate.getDate() <= currentDayOfMonth;
+        });
+
+        const total = monthExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        velocityData.push(total);
+        velocityLabels.push(checkDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+    }
+
+    window.velocityChart = new Chart(velocityCtx, {
+        type: 'bar',
+        data: {
+            labels: velocityLabels,
+            datasets: [{
+                label: `Spending up to Day ${currentDayOfMonth}`,
+                data: velocityData,
+                backgroundColor: velocityData.map((val, idx) => {
+                    if (idx === velocityData.length - 1) return 'rgba(239, 68, 68, 0.7)'; // Current month in red
+                    return 'rgba(102, 126, 234, 0.7)';
+                }),
+                borderColor: velocityData.map((val, idx) => {
+                    if (idx === velocityData.length - 1) return '#ef4444';
+                    return '#667eea';
+                }),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Spending Velocity - First ${currentDayOfMonth} Days Comparison`,
+                    font: { size: 16 }
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const percentChange = context.dataIndex > 0 ?
+                                ((context.parsed.y - velocityData[context.dataIndex - 1]) / velocityData[context.dataIndex - 1] * 100) : 0;
+                            return [
+                                `Amount: ₹${context.parsed.y.toFixed(2)}`,
+                                context.dataIndex > 0 ? `Change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(1)}%` : ''
+                            ].filter(Boolean);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: v => '₹' + v.toFixed(0) }
+                }
+            }
+        }
+    });
 }
 
 // Function to update chart based on selected data view
@@ -2154,6 +2246,11 @@ function updateInsightsChart() {
 
     window.insightsChart.data.datasets = datasets;
     window.insightsChart.update();
+
+    // Update velocity chart too
+    if (window.velocityChart) {
+        window.velocityChart.update();
+    }
 }
 
 document.getElementById('delete-type-form').addEventListener('submit', async function (e) {
