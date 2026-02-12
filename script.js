@@ -1813,6 +1813,8 @@ function showInsightsModal() {
 
 function closeInsightsModal() {
     document.getElementById('insights-modal').style.display = 'none';
+    
+    // Properly destroy both charts
     if (window.insightsChart) {
         window.insightsChart.destroy();
         window.insightsChart = null;
@@ -1821,6 +1823,11 @@ function closeInsightsModal() {
         window.velocityChart.destroy();
         window.velocityChart = null;
     }
+    
+    // CRITICAL FIX: Clear the chart data to prevent interference
+    window.insightsChartData = null;
+    window.velocityChartData = null;
+    
     showLandingIcons();
 }
 
