@@ -1518,12 +1518,12 @@ async function exportToCSV() {
 
         const isSingleMonthExport = startMonth === endMonth && startYear === endYear && startMonth && endMonth;
 
-        const headers = ['Date', 'Type', 'Amount', 'Note', 'Billed'];
+        const headers = ['Date', 'Type', 'Note', 'Amount', 'Billed'];
         const rows = expensesToExport.map(expense => [
             expense.date,
             `"${expense.type}"`,
-            expense.amount,
             `"${expense.note || ''}"`,
+            expense.amount,
             expense.billed ? 'Yes' : 'No'
         ]);
 
