@@ -9,8 +9,12 @@ let monthlyBilledBudget = 0;
 let monthlyUnbilledBudget = 0;
 let supabase;
 
-// Initialize Supabase - FIXED: Remove import.meta usage
-const supabaseUrl = 'https://hjjpjcqzslqikopsbxwh.supabase.co';
+// Use Cloudflare Worker proxy for Indian ISP compatibility
+const DIRECT_SUPABASE_URL = 'https://hjjpjcqzslqikopsbxwh.supabase.co';
+const PROXY_URL = 'https://supabase-proxy.sdukesameer.workers.dev';
+
+// Detect if Supabase is reachable, fallback to proxy
+const supabaseUrl = PROXY_URL;
 const supabaseKey = 'sb_publishable_7dJnWY2k5asHPS1qpABHjw_MeQXUpIa';
 
 if (!supabaseUrl || !supabaseKey) {
@@ -1813,7 +1817,7 @@ function showInsightsModal() {
 
 function closeInsightsModal() {
     document.getElementById('insights-modal').style.display = 'none';
-    
+
     // Properly destroy both charts
     if (window.insightsChart) {
         window.insightsChart.destroy();
@@ -1823,11 +1827,11 @@ function closeInsightsModal() {
         window.velocityChart.destroy();
         window.velocityChart = null;
     }
-    
+
     // CRITICAL FIX: Clear the chart data to prevent interference
     window.insightsChartData = null;
     window.velocityChartData = null;
-    
+
     showLandingIcons();
 }
 
