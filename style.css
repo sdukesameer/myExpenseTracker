@@ -403,6 +403,58 @@ body.loaded {
     transform: translateY(-50%) scale(1.05);
 }
 
+.recent-types-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.recent-types-bubbles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.type-bubble {
+    background: rgba(102, 126, 234, 0.1);
+    color: #4c51bf;
+    border: 1px solid rgba(102, 126, 234, 0.25);
+    border-radius: 20px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.type-bubble:hover {
+    background: rgba(102, 126, 234, 0.18);
+    transform: translateY(-1px);
+}
+
+.type-bubble.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.dark-mode .recent-types-label {
+    color: #9ca3af;
+}
+
+.dark-mode .type-bubble {
+    background: rgba(255, 255, 255, 0.08);
+    color: #c7d2fe;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.dark-mode .type-bubble:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
 .expenses-list {
     background: white;
     border-radius: 20px;
@@ -902,6 +954,185 @@ body.loaded {
     width: auto;
     margin: 0;
     min-height: auto;
+}
+
+.import-instructions {
+    background: rgba(102, 126, 234, 0.06);
+    border: 1px solid rgba(102, 126, 234, 0.15);
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.import-header-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.5rem 0;
+}
+
+.header-pill {
+    background: white;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    color: #4c51bf;
+    border-radius: 8px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: monospace;
+}
+
+.sample-csv-link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    color: #667eea;
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.88rem;
+}
+
+.sample-csv-link:hover {
+    text-decoration: underline;
+}
+
+.import-dropzone {
+    border: 2px dashed rgba(102, 126, 234, 0.35);
+    border-radius: 16px;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #6b7280;
+}
+
+.import-dropzone:hover,
+.import-dropzone.dragover {
+    background: rgba(102, 126, 234, 0.05);
+    border-color: #667eea;
+}
+
+.import-dropzone-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.import-progress-stats {
+    display: flex;
+    gap: 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.import-stat.success {
+    color: #059669;
+}
+
+.import-stat.failed {
+    color: #dc2626;
+}
+
+.import-summary-banner {
+    background: rgba(102, 126, 234, 0.08);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.import-preview-table-wrapper {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.import-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.import-preview-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    color: #6b7280;
+    font-weight: 600;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.import-preview-table tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    color: #374151;
+}
+
+.import-preview-table tbody tr.row-invalid {
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.import-row-status {
+    font-weight: 700;
+}
+
+.import-row-status.valid {
+    color: #059669;
+}
+
+.import-row-status.invalid {
+    color: #dc2626;
+}
+
+.import-review-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.import-review-actions .btn,
+.import-review-actions .btn-secondary {
+    width: auto;
+    flex: 1;
+}
+
+.import-done-icon {
+    font-size: 3rem;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.dark-mode .import-instructions {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #e5e7eb;
+}
+
+.dark-mode .header-pill {
+    background: rgba(255, 255, 255, 0.08);
+    color: #c7d2fe;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark-mode .import-dropzone {
+    color: #9ca3af;
+}
+
+.dark-mode .import-preview-table thead th {
+    background: rgba(255, 255, 255, 0.06);
+    color: #9ca3af;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .import-preview-table tbody td {
+    color: #e5e7eb;
+    border-color: rgba(255, 255, 255, 0.06);
 }
 
 .password-actions {

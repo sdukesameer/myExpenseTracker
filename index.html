@@ -26,6 +26,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
         <script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
         <link href="style.css" rel="stylesheet" />
     </head>
 
@@ -153,6 +154,9 @@
                         <button class="user-menu-item" onclick="showInsightsModal(); toggleUserMenu();">
                             <span>📊</span> Spending Insights
                         </button>
+                        <button class="user-menu-item" onclick="showImportExpenses(); toggleUserMenu();">
+                            <span>📥</span> Import Expenses
+                        </button>
                         <button class="user-menu-item" onclick="showChangePassword(); toggleUserMenu();">
                             <span>🔐</span> Change Password
                         </button>
@@ -243,6 +247,10 @@
                                 <input id="amount" min="0" required="" step="0.01" type="number" />
                             </div>
                         </div>
+                        <div class="form-group" id="recent-types-row" style="display: none; margin-top: -0.5rem;">
+                            <div class="recent-types-label">Quick select:</div>
+                            <div class="recent-types-bubbles" id="recent-types-bubbles"></div>
+                        </div>
                         <div class="form-group">
                             <label for="date">Date:</label>
                             <input id="date" onchange="updateDateDisplay()" required="" type="date" />
@@ -275,25 +283,89 @@
                 </div>
             </div>
         </div>
-        <!-- Change Password Modal -->
-        <div class="modal" id="change-password-modal">
-            <div class="modal-content">
-                <button class="close-modal" onclick="closeChangePasswordModal()">×</button>
-                <h3 style="margin-bottom: 1.5rem; color: #374151;">Change Password</h3>
-                <div id="change-password-alert"></div>
-                <form id="change-password-form">
-                    <div class="form-group">
-                        <label for="new-password">New Password:</label>
-                        <input autocomplete="new-password" id="new-password" minlength="6" required=""
-                            type="password" />
+        <!-- Import Expenses Modal -->
+        <div class="modal" id="import-expenses-modal">
+            <div class="modal-content" style="max-width: 850px;">
+                <button class="close-modal" onclick="closeImportExpensesModal()">×</button>
+                <h3 style="margin-bottom: 1rem; color: #374151;">Import Expenses</h3>
+
+                <!-- Step 1: Instructions + Upload -->
+                <div id="import-step-upload">
+                    <div class="import-instructions">
+                        <p style="margin-bottom: 0.5rem;"><strong>File format:</strong> the first row (header) must
+                            contain exactly these columns, in any order:</p>
+                        <div class="import-header-pills">
+                            <span class="header-pill">Note</span>
+                            <span class="header-pill">Type</span>
+                            <span class="header-pill">Amount</span>
+                            <span class="header-pill">Date</span>
+                            <span class="header-pill">Billed/Unbilled</span>
+                        </div>
+                        <p style="margin: 0.75rem 0 0;">Date should be in <code>DD/MM/YYYY</code> format, Amount as a
+                            whole number (no decimals), and Billed/Unbilled as <code>Billed</code> or
+                            <code>Unbilled</code>.
+                        </p>
+                        <a href="#" id="download-sample-csv" class="sample-csv-link">⬇ Download sample CSV</a>
                     </div>
-                    <div class="form-group">
-                        <label for="confirm-new-password">Confirm New Password:</label>
-                        <input autocomplete="new-password" id="confirm-new-password" minlength="6" required=""
-                            type="password" />
+
+                    <div id="import-alert"></div>
+
+                    <div class="import-dropzone" id="import-dropzone">
+                        <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" hidden />
+                        <div class="import-dropzone-icon">📄</div>
+                        <p><strong>Click to choose a file</strong> or drag &amp; drop</p>
+                        <p style="font-size: 0.8rem; color: #9ca3af;">CSV, XLSX or XLS</p>
                     </div>
-                    <button class="btn" type="submit">Change Password</button>
-                </form>
+                </div>
+
+                <!-- Step 2: Loading / progress -->
+                <div id="import-step-progress" style="display: none;">
+                    <p id="import-progress-label" style="font-weight: 600; color: #374151; margin-bottom: 0.75rem;">
+                        Importing row 0 of 0…</p>
+                    <div class="budget-progress">
+                        <div class="budget-progress-bar" id="import-progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="import-progress-stats">
+                        <span id="import-progress-success" class="import-stat success">✓ 0 valid</span>
+                        <span id="import-progress-failed" class="import-stat failed">✕ 0 failed</span>
+                    </div>
+                </div>
+
+                <!-- Step 3: Preview / review -->
+                <div id="import-step-review" style="display: none;">
+                    <div class="import-summary-banner" id="import-summary-banner"></div>
+                    <div class="import-preview-table-wrapper">
+                        <table class="import-preview-table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Note</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Billed</th>
+                                    <th>Issue</th>
+                                </tr>
+                            </thead>
+                            <tbody id="import-preview-body"></tbody>
+                        </table>
+                    </div>
+                    <p style="font-size: 0.85rem; color: #6b7280; margin: 0.75rem 0 1rem;">Only rows marked ✓ Valid
+                        will be uploaded. Fix and re-upload the file if you'd like to correct failed rows first.</p>
+                    <div class="import-review-actions">
+                        <button class="btn btn-secondary" type="button" onclick="cancelImportReview()">Cancel</button>
+                        <button class="btn" type="button" id="confirm-import-btn"
+                            onclick="confirmImportUpload()">Confirm &amp; Upload Valid Rows</button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Final summary -->
+                <div id="import-step-done" style="display: none;">
+                    <div class="import-done-icon">✅</div>
+                    <h4 id="import-done-title" style="text-align: center; color: #374151;">Import complete</h4>
+                    <p id="import-done-summary" style="text-align: center; color: #6b7280;"></p>
+                    <button class="btn" type="button" onclick="closeImportExpensesModal()">Done</button>
+                </div>
             </div>
         </div>
         <!-- Edit Profile Modal -->
