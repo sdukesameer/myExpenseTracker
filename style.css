@@ -353,6 +353,21 @@ body.loaded {
 
 .form-row.two {
     grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+        "type amount"
+        "bubbles bubbles";
+}
+
+.form-row.two > .form-group:nth-child(1) {
+    grid-area: type;
+}
+
+.form-row.two > .form-group:nth-child(2) {
+    grid-area: bubbles;
+}
+
+.form-row.two > .form-group:nth-child(3) {
+    grid-area: amount;
 }
 
 .type-input-container {
@@ -1398,6 +1413,22 @@ body.loaded {
 
     .form-row.two {
         grid-template-columns: 1fr;
+        grid-template-areas:
+            "type"
+            "bubbles"
+            "amount";
+    }
+
+    .form-row.two>.form-group:first-child {
+        order: 1;
+    }
+
+    #recent-types-row {
+        order: 2;
+    }
+
+    .form-row.two>.form-group:last-child {
+        order: 3;
     }
 
     .expenses-header {
