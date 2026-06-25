@@ -3771,7 +3771,7 @@ function showImportReview(rows) {
             <td>${isNaN(r.amount) ? '-' : '₹' + r.amount}</td>
             <td>${escapeHtml(r.displayDate || r.date)}</td>
             <td>${r.billed === null ? '-' : (r.billed ? 'Billed' : 'Unbilled')}</td>
-            <td style="color:#dc2626; font-size:0.8rem;">${r.issues.join(', ')}</td>
+            <td style="color:#dc2626; font-size:0.8rem;">${escapeHtml(r.issues.join(', '))}</td>
         </tr>
     `).join('');
 
