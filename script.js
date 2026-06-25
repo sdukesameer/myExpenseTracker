@@ -636,9 +636,98 @@ async function loadUserTypes() {
             option.textContent = type.name;
             typeSelect.appendChild(option);
         });
+
+        loadRecentTypeBubbles();
     } catch (error) {
         console.error('Failed to load types:', error);
     }
+}
+
+async function loadRecentTypeBubbles() {
+    const row = document.getElementById('recent-types-row');
+    const container = document.getElementById('recent-types-bubbles');
+    try {
+        const { data, error } = await supabase
+            .from('expenses')
+            .select('type, date')
+            .eq('user_id', currentUser.id)
+            .order('date', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+
+        const seen = new Set();
+        const recentTypes = [];
+        for (const row of data) {
+            if (!seen.has(row.type)) {
+                seen.add(row.type);
+                recentTypes.push(row.type);
+            }
+            if (recentTypes.length === 12) break; // gather a generous pool, trim by width below
+        }
+
+        if (recentTypes.length === 0) {
+            row.style.display = 'none';
+            return;
+        }
+
+        row.style.display = 'block';
+        renderTypeBubblesResponsive(recentTypes);
+    } catch (error) {
+        console.error('Failed to load recent types:', error);
+        row.style.display = 'none';
+    }
+}
+
+function renderTypeBubblesResponsive(recentTypes) {
+    const container = document.getElementById('recent-types-bubbles');
+    const MIN_BUBBLES = 3;
+
+    // Render all candidates first (off-screen-safe, just normal flow) so we can measure real widths
+    container.innerHTML = '';
+    recentTypes.forEach(typeName => {
+        const bubble = document.createElement('button');
+        bubble.type = 'button';
+        bubble.className = 'type-bubble';
+        bubble.textContent = typeName;
+        bubble.onclick = () => selectTypeFromBubble(typeName);
+        container.appendChild(bubble);
+    });
+
+    requestAnimationFrame(() => {
+        const containerWidth = container.clientWidth;
+        const gap = 8; // matches CSS gap: 0.5rem
+        const bubbles = Array.from(container.children);
+
+        let usedWidth = 0;
+        let fitCount = 0;
+
+        for (let i = 0; i < bubbles.length; i++) {
+            const w = bubbles[i].offsetWidth;
+            const next = usedWidth + (fitCount > 0 ? gap : 0) + w;
+            if (next <= containerWidth || fitCount < MIN_BUBBLES) {
+                usedWidth = next;
+                fitCount++;
+            } else {
+                break;
+            }
+        }
+
+        fitCount = Math.max(MIN_BUBBLES, Math.min(fitCount, bubbles.length));
+
+        bubbles.forEach((b, idx) => {
+            if (idx >= fitCount) b.remove();
+        });
+    });
+}
+
+function selectTypeFromBubble(typeName) {
+    const typeSelect = document.getElementById('type');
+    typeSelect.value = typeName;
+
+    document.querySelectorAll('.type-bubble').forEach(b => {
+        b.classList.toggle('active', b.textContent === typeName);
+    });
 }
 
 async function loadTypesForEdit() {
@@ -814,6 +903,7 @@ async function handleAddExpense(e) {
         document.getElementById('expense-form').reset();
         document.getElementById('date').value = new Date().toLocaleDateString('en-CA');
         document.getElementById('form-billed-toggle').classList.remove('active');
+        document.querySelectorAll('.type-bubble').forEach(b => b.classList.remove('active'));
         updateDateDisplay();
 
         const selectedType = document.getElementById('type').value; // Save current selection
@@ -825,6 +915,7 @@ async function handleAddExpense(e) {
         document.getElementById('type').value = selectedType; // Restore selection
 
         await checkBudgetWarnings();
+        loadRecentTypeBubbles();
         showNotification('Expense added successfully!', 'success');
     } catch (error) {
         console.error('Add expense error:', error);
@@ -3439,4 +3530,322 @@ function toggleFormBilling() {
     // Update hidden checkbox for form submission
     const checkbox = document.getElementById('billed');
     checkbox.checked = toggle.classList.contains('active');
+}
+
+// ===================== Import Expenses Feature =====================
+let importParsedRows = [];
+let importValidRows = [];
+
+const REQUIRED_IMPORT_HEADERS = ['Note', 'Type', 'Amount', 'Date', 'Billed/Unbilled'];
+
+function showImportExpenses() {
+    document.getElementById('import-expenses-modal').style.display = 'block';
+    resetImportModal();
+}
+
+function closeImportExpensesModal() {
+    document.getElementById('import-expenses-modal').style.display = 'none';
+    resetImportModal();
+}
+
+function resetImportModal() {
+    importParsedRows = [];
+    importValidRows = [];
+    document.getElementById('import-step-upload').style.display = 'block';
+    document.getElementById('import-step-progress').style.display = 'none';
+    document.getElementById('import-step-review').style.display = 'none';
+    document.getElementById('import-step-done').style.display = 'none';
+    document.getElementById('import-alert').innerHTML = '';
+    document.getElementById('import-file-input').value = '';
+    document.getElementById('import-preview-body').innerHTML = '';
+}
+
+function initImportExpensesUI() {
+    const dropzone = document.getElementById('import-dropzone');
+    const fileInput = document.getElementById('import-file-input');
+    const sampleLink = document.getElementById('download-sample-csv');
+
+    if (!dropzone) return;
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            handleImportFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) {
+            handleImportFile(e.target.files[0]);
+        }
+    });
+
+    sampleLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        downloadSampleCsv();
+    });
+}
+
+function downloadSampleCsv() {
+    const sampleContent = 'Note,Type,Amount,Date,Billed/Unbilled\nSample Note,Type,500,01/01/2026,Unbilled\n';
+    const blob = new Blob([sampleContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'expense_import_sample.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function handleImportFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const workbook = XLSX.read(e.target.result, { type: 'binary', cellDates: false });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+
+            if (!rows.length) {
+                showAlert('import-alert', 'The file appears to be empty.', 'error');
+                return;
+            }
+
+            const headers = Object.keys(rows[0]).map(h => h.trim());
+            const missing = REQUIRED_IMPORT_HEADERS.filter(h => !headers.includes(h));
+            if (missing.length) {
+                showAlert('import-alert', `Missing required column(s): ${missing.join(', ')}`, 'error');
+                return;
+            }
+
+            importParsedRows = rows;
+            runImportValidation(rows);
+        } catch (err) {
+            console.error('Import parse error:', err);
+            showAlert('import-alert', 'Could not read this file. Please check the format and try again.', 'error');
+        }
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function runImportValidation(rows) {
+    document.getElementById('import-step-upload').style.display = 'none';
+    document.getElementById('import-step-progress').style.display = 'block';
+
+    const progressBar = document.getElementById('import-progress-bar');
+    const progressLabel = document.getElementById('import-progress-label');
+    const successCounter = document.getElementById('import-progress-success');
+    const failedCounter = document.getElementById('import-progress-failed');
+
+    const validTypes = await loadTypesForEdit();
+    const validatedRows = [];
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const raw = rows[i];
+        const result = validateImportRow(raw, validTypes);
+        validatedRows.push(result);
+
+        if (result.valid) successCount++; else failedCount++;
+
+        progressLabel.textContent = `Importing row ${i + 1} of ${rows.length}…`;
+        progressBar.style.width = `${Math.round(((i + 1) / rows.length) * 100)}%`;
+        successCounter.textContent = `✓ ${successCount} valid`;
+        failedCounter.textContent = `✕ ${failedCount} failed`;
+
+        // small delay so the progress UI feels alive on large files
+        await new Promise(resolve => setTimeout(resolve, 40));
+    }
+
+    importValidRows = validatedRows;
+    showImportReview(validatedRows);
+}
+
+function normalizeTypeKey(str) {
+    return (str || '').toString().replace(/[^a-zA-Z]/g, '').toLowerCase();
+}
+
+function parseDDMMYYYY(dateRaw) {
+    const match = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(dateRaw.trim());
+    if (!match) return null;
+
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const year = parseInt(match[3], 10);
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const dateObj = new Date(year, month - 1, day);
+    if (dateObj.getFullYear() !== year || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) {
+        return null; // catches invalid dates like 31/02/2026
+    }
+
+    const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return iso;
+}
+
+function validateImportRow(raw, validTypes) {
+    const note = (raw['Note'] || '').toString().trim();
+    const typeInput = (raw['Type'] || '').toString().trim();
+    const amountRaw = (raw['Amount'] || '').toString().trim();
+    const dateRaw = (raw['Date'] || '').toString().trim();
+    const billedRaw = (raw['Billed/Unbilled'] || '').toString().trim().toLowerCase();
+
+    const issues = [];
+
+    if (!note) issues.push('Missing note');
+
+    // Loose type matching: strip non-alphabets, lowercase, compare against DB types normalized the same way
+    let matchedType = null;
+    if (!typeInput) {
+        issues.push('Missing type');
+    } else {
+        const inputKey = normalizeTypeKey(typeInput);
+        matchedType = validTypes.find(t => normalizeTypeKey(t) === inputKey) || null;
+        if (!matchedType) issues.push(`Unknown type "${typeInput}"`);
+    }
+
+    // Amount must be a whole number (no decimals)
+    let amount = NaN;
+    if (!amountRaw) {
+        issues.push('Missing amount');
+    } else if (!/^\d+$/.test(amountRaw)) {
+        issues.push('Amount must be a whole number (no decimals)');
+    } else {
+        amount = parseInt(amountRaw, 10);
+        if (amount <= 0) issues.push('Invalid amount');
+        if (amount > 1000000) issues.push('Amount exceeds ₹10,00,000');
+    }
+
+    // Date must be DD/MM/YYYY
+    const isoDate = parseDDMMYYYY(dateRaw);
+    if (!isoDate) issues.push('Invalid date (use DD/MM/YYYY)');
+
+    let billed = null;
+    if (billedRaw === 'billed') billed = true;
+    else if (billedRaw === 'unbilled') billed = false;
+    else issues.push('Billed/Unbilled must be "Billed" or "Unbilled"');
+
+    return {
+        note,
+        type: matchedType || typeInput,
+        amount,
+        date: isoDate || dateRaw,
+        displayDate: dateRaw,
+        billed,
+        valid: issues.length === 0,
+        issues
+    };
+}
+
+function showImportReview(rows) {
+    document.getElementById('import-step-progress').style.display = 'none';
+    document.getElementById('import-step-review').style.display = 'block';
+
+    const validCount = rows.filter(r => r.valid).length;
+    const failedCount = rows.length - validCount;
+
+    document.getElementById('import-summary-banner').textContent =
+        `${rows.length} row(s) read — ${validCount} valid, ${failedCount} failed.`;
+
+    const tbody = document.getElementById('import-preview-body');
+    tbody.innerHTML = rows.map(r => `
+        <tr class="${r.valid ? '' : 'row-invalid'}">
+            <td><span class="import-row-status ${r.valid ? 'valid' : 'invalid'}">${r.valid ? '✓ Valid' : '✕ Failed'}</span></td>
+            <td>${escapeHtml(r.note)}</td>
+            <td>${escapeHtml(r.type)}</td>
+            <td>${isNaN(r.amount) ? '-' : '₹' + r.amount}</td>
+            <td>${escapeHtml(r.displayDate || r.date)}</td>
+            <td>${r.billed === null ? '-' : (r.billed ? 'Billed' : 'Unbilled')}</td>
+            <td style="color:#dc2626; font-size:0.8rem;">${r.issues.join(', ')}</td>
+        </tr>
+    `).join('');
+
+    const confirmBtn = document.getElementById('confirm-import-btn');
+    confirmBtn.disabled = validCount === 0;
+    confirmBtn.textContent = validCount === 0
+        ? 'No valid rows to upload'
+        : `Confirm & Upload ${validCount} Valid Row${validCount === 1 ? '' : 's'}`;
+}
+
+function cancelImportReview() {
+    resetImportModal();
+}
+
+async function confirmImportUpload() {
+    const rowsToInsert = importValidRows.filter(r => r.valid).map(r => ({
+        user_id: currentUser.id,
+        amount: r.amount,
+        date: r.date,
+        type: r.type,
+        note: r.note,
+        billed: r.billed
+    }));
+
+    if (!rowsToInsert.length) return;
+
+    const confirmBtn = document.getElementById('confirm-import-btn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Uploading…';
+
+    try {
+        const { error } = await supabase.from('expenses').insert(rowsToInsert);
+        if (error) throw error;
+
+        const failedCount = importValidRows.length - rowsToInsert.length;
+
+        document.getElementById('import-step-review').style.display = 'none';
+        document.getElementById('import-step-done').style.display = 'block';
+        document.getElementById('import-done-title').textContent = 'Import complete';
+        document.getElementById('import-done-summary').textContent =
+            `${rowsToInsert.length} expense(s) imported successfully` +
+            (failedCount > 0 ? `, ${failedCount} row(s) were skipped due to errors.` : '.');
+
+        await Promise.all([loadExpenses(), updateStatistics(), updateBudgetDisplay()]);
+        loadRecentTypeBubbles();
+        showNotification(`${rowsToInsert.length} expenses imported!`, 'success');
+    } catch (error) {
+        console.error('Import upload error:', error);
+        showAlert('import-alert', 'Failed to upload expenses: ' + error.message, 'error');
+        document.getElementById('import-step-review').style.display = 'block';
+        document.getElementById('import-step-done').style.display = 'none';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Retry Upload';
+    }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+document.addEventListener('DOMContentLoaded', initImportExpensesUI);
+
+window.addEventListener('resize', debounce(() => {
+    if (document.getElementById('recent-types-row').style.display !== 'none') {
+        loadRecentTypeBubbles();
+    }
+}, 300));
+
+function debounce(fn, delay) {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
 }
