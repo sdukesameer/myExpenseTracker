@@ -649,9 +649,9 @@ async function loadRecentTypeBubbles() {
     try {
         const { data, error } = await supabase
             .from('expenses')
-            .select('type, date')
+            .select('type, updated_at')
             .eq('user_id', currentUser.id)
-            .order('date', { ascending: false })
+            .order('updated_at', { ascending: false })
             .limit(50);
 
         if (error) throw error;
@@ -950,8 +950,8 @@ async function loadExpenses() {
         const { data, error } = await supabase
             .from('expenses')
             .select('*')
-            .order('date', { ascending: false })
-            .limit(5); // Show only last 5
+            .order('updated_at', { ascending: false })
+            .limit(5); // Show only last 5 inserted/updated
 
         if (error) throw error;
 
